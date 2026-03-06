@@ -80,7 +80,7 @@ export async function getTeamFullActivity(teamId: string): Promise<{
 
         // Calculate total spent
         const totalSpent = (squad || []).reduce(
-            (sum, player) => sum + Number(player.sold_price || 0),
+            (sum: number, player: any) => sum + Number(player.sold_price || 0),
             0
         );
 
