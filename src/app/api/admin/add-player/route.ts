@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { supabaseAdmin } from '@/lib/admin';
 import { randomUUID } from 'crypto';
 
@@ -23,10 +24,10 @@ export async function POST(request: Request) {
         // 1. Ensure Storage Bucket exists
         try {
             const { data: buckets } = await supabaseAdmin.storage.listBuckets();
-            if (!buckets?.some(b => b.name === 'players')) {
+            if (!buckets?.some((b: any) => b.name === 'players')) {
                 await supabaseAdmin.storage.createBucket('players', { public: true });
             }
-        } catch (e) { console.error('Bucket check failed', e); }
+        } catch (e: any) { console.error('Bucket check failed', e); }
 
         // 2. Upload Image
         const fileExt = imageFile.name.split('.').pop();

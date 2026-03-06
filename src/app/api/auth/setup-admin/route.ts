@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { supabaseAdmin } from '@/lib/admin';
 
 export async function GET() {
@@ -18,7 +19,7 @@ export async function GET() {
             // If user already exists, update them to ensure password and role are correct
             if (error.message.toLowerCase().includes('already registered')) {
                 const { data: userData } = await supabaseAdmin.auth.admin.listUsers();
-                const existingUser = userData?.users?.find(u => u.email === email);
+                const existingUser = userData?.users?.find((u: any) => u.email === email);
 
                 if (existingUser) {
                     await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
