@@ -39,7 +39,7 @@ export default function PlayerRegistration() {
                 </Link>
             </nav>
 
-            <div className="container" style={{ maxWidth: '900px', margin: '40px auto', padding: '0 15px' }}>
+            <div className="container" style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 15px' }}>
                 {/* Intro Section */}
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <motion.h1
@@ -50,7 +50,7 @@ export default function PlayerRegistration() {
                     >
                         OFFICIAL REGISTRATION
                     </motion.h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 600 }}>Join the Keshav Cup 2026 Player Pool</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 600 }}>Fill the Google Form below to join Keshav Cup 2026</p>
                 </div>
 
                 {/* Custom Registration Form Container */}
@@ -62,14 +62,20 @@ export default function PlayerRegistration() {
                     style={{
                         borderRadius: '32px',
                         overflow: 'hidden',
-                        background: 'rgba(255, 255, 255, 0.02)',
-                        border: '1px solid rgba(255, 215, 0, 0.1)',
-                        minHeight: '600px',
+                        background: '#fff',
+                        height: '1200px',
                         position: 'relative',
                         boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
                     }}
                 >
-                    <RegistrationForm />
+                    <iframe
+                        src="https://docs.google.com/forms/d/e/1FAIpQLSd1wRv_ZB6pA8GAP3jBcdfOS9VG03c_gQeaSkSYl8kb6eR-iw/viewform?embedded=true"
+                        width="100%"
+                        height="1200"
+                        frameBorder="0"
+                        marginHeight={0}
+                        marginWidth={0}
+                    >Loading…</iframe>
                 </motion.div>
 
                 {/* Footer Info */}

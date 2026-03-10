@@ -149,7 +149,7 @@ export default function AdminLoginPage() {
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@ keshav.com"
+                                placeholder="admin@keshav.com"
                                 style={inputStyle}
                                 required
                             />
@@ -175,9 +175,6 @@ export default function AdminLoginPage() {
                         {loading ? <Loader2 className="animate-spin" size={24} /> : 'INITIALIZE ACCESS'}
                     </button>
 
-                    {/*<p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '10px' }}>
-                        Default security credentials: <strong>87654321</strong>
-                    </p>*/}
                 </form>
             </div>
 

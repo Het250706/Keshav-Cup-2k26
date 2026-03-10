@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS players (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
+    cricket_skill TEXT,
+    was_present_kc3 TEXT,
     role TEXT NOT NULL,
     category TEXT,
     batting_style TEXT,

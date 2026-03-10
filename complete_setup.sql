@@ -9,9 +9,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS teams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
-    remaining_budget BIGINT DEFAULT 1000000000,
-    total_budget BIGINT DEFAULT 1000000000,
-    max_players INTEGER DEFAULT 15,
+    remaining_budget BIGINT DEFAULT 5000,
+    total_budget BIGINT DEFAULT 5000,
+    max_players INTEGER DEFAULT 9,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -56,14 +56,14 @@ CREATE TABLE IF NOT EXISTS bids (
 -- 6. Seed Teams
 INSERT INTO teams (name, remaining_budget, total_budget, max_players)
 VALUES 
-    ('SHAURYAM', 1000000000, 1000000000, 15),
-    ('DIVYAM', 1000000000, 1000000000, 15),
-    ('SATYAM', 1000000000, 1000000000, 15),
-    ('DASHATVAM', 1000000000, 1000000000, 15),
-    ('DHAIRYAM', 1000000000, 1000000000, 15),
-    ('GYANAM', 1000000000, 1000000000, 15),
-    ('AISHWARYAM', 1000000000, 1000000000, 15),
-    ('ASTIKAYAM', 1000000000, 1000000000, 15)
+    ('SHAURYAM', 5000, 5000, 9),
+    ('DIVYAM', 5000, 5000, 9),
+    ('SATYAM', 5000, 5000, 9),
+    ('DASHATVAM', 5000, 5000, 9),
+    ('DHAIRYAM', 5000, 5000, 9),
+    ('GYANAM', 5000, 5000, 9),
+    ('AISHWARYAM', 5000, 5000, 9),
+    ('ASTIKAYAM', 5000, 5000, 9)
 ON CONFLICT (name) DO NOTHING;
 
 -- 7. Initialize Auction State

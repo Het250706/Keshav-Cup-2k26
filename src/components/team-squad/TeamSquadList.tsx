@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Shield, Users, CreditCard, ChevronRight, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { fixPhotoUrl } from '@/lib/utils';
 
 export default function TeamSquadList() {
     const [teams, setTeams] = useState<any[]>([]);
@@ -17,8 +18,8 @@ export default function TeamSquadList() {
         fetchData();
 
         const channel = supabase.channel('teams-sync')
-            .on('postgres_changes', { event: '*', table: 'players' }, () => fetchData())
-            .on('postgres_changes', { event: '*', table: 'teams' }, () => fetchData())
+            .on('postgres_changes', { event: '*', table: 'players', schema: 'public' }, () => fetchData())
+            .on('postgres_changes', { event: '*', table: 'teams', schema: 'public' }, () => fetchData())
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
@@ -56,7 +57,7 @@ export default function TeamSquadList() {
 
             <div className="teams-grid">
                 {filteredTeams.map((team, i) => {
-                    const squad = players.filter((p: any) => p.sold_team === team.name);
+                    const squad = players.filter((p: any) => p.sold_team_id === team.id);
                     const spent = squad.reduce((acc: number, p: any) => acc + (p.sold_price || 0), 0);
                     const isExpanded = expandedTeam === team.id;
 
@@ -91,7 +92,7 @@ export default function TeamSquadList() {
                                                 <Users size={14} /> {squad.length} PLAYERS
                                             </span>
                                             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                <CreditCard size={14} /> ₹ {(team.remaining_budget / 10000000).toFixed(2)} Cr REMAINING
+                                                <CreditCard size={14} /> {team.remaining_budget} Pushp REMAINING
                                             </span>
                                         </div>
                                     </div>
@@ -120,19 +121,19 @@ export default function TeamSquadList() {
                                                             <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', overflow: 'hidden', background: '#111' }}>
-                                                                        <img src={p.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                                                        <img src={fixPhotoUrl(p.photo_url) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                                                                     </div>
                                                                     <div>
                                                                         <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{p.first_name} {p.last_name}</div>
                                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800 }}>{p.role.toUpperCase()} | {p.category.toUpperCase()}</div>
                                                                     </div>
                                                                 </div>
-                                                                <div style={{ fontWeight: 950, color: '#00ff80', fontSize: '1rem' }}>₹ {(p.sold_price / 10000000).toFixed(2)} Cr</div>
+                                                                <div style={{ fontWeight: 950, color: '#00ff80', fontSize: '1rem' }}>{p.sold_price} Pushp</div>
                                                             </div>
                                                         ))}
                                                         <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(255, 215, 0, 0.05)', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span style={{ fontWeight: 800 }}>TOTAL SPENT</span>
-                                                            <span style={{ fontWeight: 950, fontSize: '1.2rem', color: 'var(--primary)' }}>₹ {(spent / 10000000).toFixed(2)} Cr</span>
+                                                            <span style={{ fontWeight: 950, fontSize: '1.2rem', color: 'var(--primary)' }}>{spent} Pushp</span>
                                                         </div>
                                                     </div>
                                                 )}

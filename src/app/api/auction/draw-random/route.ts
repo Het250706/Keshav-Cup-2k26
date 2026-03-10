@@ -37,12 +37,12 @@ export async function POST() {
         const { error: stateError } = await supabaseAdmin
             .from('auction_state')
             .update({
-                status: 'active',
+                status: 'BIDDING',
+                bidding_status: 'BIDDING OPEN',
                 current_player_id: randomPlayer.id,
                 current_highest_bid: 0,
-                last_bid_team_id: null,
-                timer_remaining: 30, // Default 30s
-                bid_increment: 10000000 // 10L default
+                highest_bid_team_id: null,
+                last_updated_at: new Date().toISOString()
             })
             .eq('id', 1);
 

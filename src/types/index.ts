@@ -62,9 +62,11 @@ export interface Player {
     id: string;
     first_name: string;
     last_name: string;
+    cricket_skill?: string;
+    was_present_kc3?: string;
     photo_url: string;
-    batting_style: BattingStyle;
-    bowling_style: BowlingStyle;
+    batting_style?: BattingStyle;
+    bowling_style?: BowlingStyle;
     base_price: number;
     sold_price: number | null;
     sold_to_team_id: string | null;
@@ -230,7 +232,7 @@ export type Optional<T> = T | undefined;
 // CONSTANTS
 // ============================================================================
 
-export const ADMIN_PASSWORD = '87654321';
+export const ADMIN_PASSWORD = 'het@2576';
 export const CAPTAIN_PASSWORD = '12345678';
 export const DEFAULT_PURSE = 100000000; // 10 Crore in paise
 export const DEFAULT_MAX_PLAYERS = 8;

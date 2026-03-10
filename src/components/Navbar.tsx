@@ -1,57 +1,16 @@
 import Link from 'next/link';
-import { Trophy, Shield, LayoutDashboard, User as UserIcon, ScrollText, Menu, X, Zap, LogOut, PieChart, Users, History as HistoryIcon } from 'lucide-react';
+import { LayoutDashboard, Zap, ScrollText, Shield, PieChart, Users, History as HistoryIcon, User as UserIcon, LogOut, Menu, X, Trophy, History, UserCheck, Trash2, Gavel, UserPlus, Shuffle, FileText, Download, Link as LinkIcon, FileSpreadsheet, ExternalLink, Settings, LayoutGrid } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from './AuthProvider';
 
 export default function Navbar() {
     const pathname = usePathname();
     const router = useRouter();
+    const { user, role, loading } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [user, setUser] = useState<any>(null);
-    const [role, setRole] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            // Using getUser() for session stability to avoid AbortErrors
-            const { data, error } = await supabase.auth.getUser();
-            const currentUser = data?.user || null;
-            setUser(currentUser);
-
-            if (currentUser) {
-                const { data: roleData } = await supabase
-                    .from('user_roles')
-                    .select('role')
-                    .eq('user_id', currentUser.id)
-                    .single();
-                setRole(roleData?.role || null);
-            } else {
-                setRole(null);
-            }
-        };
-        fetchUser();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-            const currentUser = session?.user || null;
-            setUser(currentUser);
-
-            if (currentUser) {
-                const { data: roleData } = await supabase
-                    .from('user_roles')
-                    .select('role')
-                    .eq('user_id', currentUser.id)
-                    .single();
-                setRole(roleData?.role || null);
-            } else {
-                setRole(null);
-            }
-        });
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
 
     const handleLogout = async () => {
         try {
@@ -106,15 +65,7 @@ export default function Navbar() {
                 </Link>
             )}
 
-            <Link href="/live-score" style={getNavLinkStyle('/live-score')} onClick={() => setIsMenuOpen(false)}>
-                <Zap size={18} />
-                <span>Live Score</span>
-            </Link>
 
-            <Link href="/auction-summary" style={getNavLinkStyle('/auction-summary')} onClick={() => setIsMenuOpen(false)}>
-                <ScrollText size={18} />
-                <span>Auction Screen</span>
-            </Link>
 
             {role === 'admin' && (
                 <>
@@ -148,6 +99,11 @@ export default function Navbar() {
                             {user.user_metadata?.team_name || (role === 'admin' ? 'Administrator' : 'User')}
                         </span>
                     </div>
+                    {role === 'admin' && (
+                        <Link href="/login" style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800, textDecoration: 'none', borderBottom: '1px dashed var(--primary)', paddingBottom: '2px' }}>
+                            CAPTAIN LOGIN
+                        </Link>
+                    )}
                     <button onClick={handleLogout} className="btn-secondary" style={{ padding: '8px 15px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', border: '1px solid #ff4b4b', color: '#ff4b4b' }}>
                         <LogOut size={16} />
                         <span className="desktop-only">Logout</span>
@@ -155,9 +111,6 @@ export default function Navbar() {
                 </div>
             ) : (
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <Link href="/register" style={{ ...getNavLinkStyle('/register'), border: '1px solid var(--border)', padding: '8px 15px', borderRadius: '15px' }} onClick={() => setIsMenuOpen(false)}>
-                        <span>Register</span>
-                    </Link>
                     <Link href="/login" className="btn-primary" style={{ padding: '8px 24px', borderRadius: '25px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setIsMenuOpen(false)}>
                         <UserIcon size={18} />
                         <span>Portal Login</span>

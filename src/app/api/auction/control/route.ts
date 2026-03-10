@@ -11,47 +11,50 @@ export async function POST(request: Request) {
             const startPrice = player?.base_price || 50000000;
 
             await supabaseAdmin.from('players').update({
-                status: 'active',
                 auction_status: 'active'
             }).eq('id', player_id);
 
             await supabaseAdmin.from('auction_state').update({
-                status: 'active',
+                status: 'BIDDING',
+                bidding_status: 'BIDDING OPEN',
                 current_player_id: player_id,
                 current_highest_bid: startPrice,
-                timer_remaining: duration || 30,
-                last_bid_team_id: null
+                highest_bid_team_id: null,
+                last_updated_at: new Date().toISOString()
             }).eq('id', 1);
         }
         else if (action === 'pause') {
-            await supabaseAdmin.from('auction_state').update({ status: 'paused' }).eq('id', 1);
+            await supabaseAdmin.from('auction_state').update({ status: 'IDLE' }).eq('id', 1);
         }
         else if (action === 'resume') {
-            await supabaseAdmin.from('auction_state').update({ status: 'active' }).eq('id', 1);
+            await supabaseAdmin.from('auction_state').update({ status: 'BIDDING' }).eq('id', 1);
         }
         else if (action === 'tick') {
-            await supabaseAdmin.from('auction_state').update({ timer_remaining }).eq('id', 1);
+            // Timer column removed in V3, ignoring tick
         }
         else if (action === 'reset') {
             await supabaseAdmin.from('auction_state').update({
-                status: 'idle',
+                status: 'IDLE',
+                bidding_status: 'IDLE',
                 current_player_id: null,
                 current_highest_bid: 0,
-                last_bid_team_id: null
+                highest_bid_team_id: null,
+                last_updated_at: new Date().toISOString()
             }).eq('id', 1);
         }
         else if (action === 'unsold') {
             const { player_id } = body;
             await supabaseAdmin.from('players').update({
-                status: 'unsold',
                 auction_status: 'unsold'
             }).eq('id', player_id);
 
             await supabaseAdmin.from('auction_state').update({
-                status: 'unsold',
+                status: 'UNSOLD',
+                bidding_status: 'IDLE',
                 current_player_id: player_id,
                 current_highest_bid: 0,
-                last_bid_team_id: null
+                highest_bid_team_id: null,
+                last_updated_at: new Date().toISOString()
             }).eq('id', 1);
         }
 

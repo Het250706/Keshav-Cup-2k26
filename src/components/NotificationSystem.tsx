@@ -26,7 +26,7 @@ export default function NotificationSystem() {
 
                 addNotification({
                     id: payload.new.id,
-                    message: `${team?.name || 'A team'} bid ₹ ${(payload.new.amount / 10000000).toFixed(2)} Cr`,
+                    message: `${team?.name || 'A team'} bid ${payload.new.amount} Pushp`,
                     playerName: playerName,
                     type: 'bid',
                     team: team?.name

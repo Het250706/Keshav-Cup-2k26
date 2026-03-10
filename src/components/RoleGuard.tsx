@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from './AuthProvider';
 
 interface RoleGuardProps {
     children: React.ReactNode;
@@ -11,77 +12,38 @@ interface RoleGuardProps {
 }
 
 export default function RoleGuard({ children, allowedRole }: RoleGuardProps) {
+    const { user, role, loading } = useAuth();
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
     const router = useRouter();
 
     useEffect(() => {
-        let isMounted = true;
+        if (loading) return;
 
-        async function checkAccess() {
-            try {
-                // Determine redirect path based on requested role
-                const loginPath = allowedRole === 'admin' ? '/admin/login' : '/login';
+        const checkAccess = () => {
+            const loginPath = allowedRole === 'admin' ? '/admin/login' : '/login';
 
-                // SAFE METHOD: Use getUser() instead of getSession() to avoid lock "steal" conflicts.
-                // getUser() is also more secure as it always validates with the server.
-                const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-                if (authError || !user) {
-                    if (isMounted) {
-                        setIsAuthorized(false);
-                        // Using window.location for a clean redirect if auth fails
-                        window.location.href = loginPath;
-                    }
-                    return;
-                }
-
-                // Query role verification
-                const { data: roleData, error: roleError } = await supabase
-                    .from('user_roles')
-                    .select('role')
-                    .eq('user_id', user.id)
-                    .single();
-
-                if (roleError || !roleData) {
-                    if (isMounted) {
-                        setIsAuthorized(false);
-                        window.location.href = loginPath;
-                    }
-                    return;
-                }
-
-                const userRole = roleData.role.toLowerCase();
-                const targetRole = allowedRole.toLowerCase();
-
-                // Logic: Admin can access everything, Captain only captain routes
-                const hasAccess = userRole === 'admin' || userRole === targetRole;
-
-                if (isMounted) {
-                    if (hasAccess) {
-                        setIsAuthorized(true);
-                    } else {
-                        setIsAuthorized(false);
-                        window.location.href = userRole === 'admin' ? '/admin/dashboard' : '/captain/dashboard';
-                    }
-                }
-            } catch (err: any) {
-                // Silently handle AbortError and retry or redirect
-                if (err.name === 'AbortError') return;
-
-                console.error('RoleGuard Error:', err);
-                if (isMounted) {
-                    setIsAuthorized(false);
-                    window.location.href = allowedRole === 'admin' ? '/admin/login' : '/login';
-                }
+            if (!user) {
+                setIsAuthorized(false);
+                window.location.href = loginPath;
+                return;
             }
-        }
+
+            const userRole = role?.toLowerCase();
+            const targetRole = allowedRole.toLowerCase();
+
+            // Logic: Admin can access everything, Captain only captain routes
+            const hasAccess = userRole === 'admin' || userRole === targetRole;
+
+            if (hasAccess) {
+                setIsAuthorized(true);
+            } else {
+                setIsAuthorized(false);
+                window.location.href = userRole === 'admin' ? '/admin/dashboard' : '/captain/dashboard';
+            }
+        };
 
         checkAccess();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [allowedRole, router]);
+    }, [allowedRole, user, role, loading]);
 
     if (isAuthorized === null) {
         return (

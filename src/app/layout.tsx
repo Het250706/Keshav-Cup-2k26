@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 import NotificationSystem from '@/components/NotificationSystem';
+import { AuthProvider } from '@/components/AuthProvider';
 import type { Metadata } from 'next';
 
 export default function RootLayout({
@@ -22,8 +23,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={outfit.className}>
-        {children}
-        <NotificationSystem />
+        <AuthProvider>
+          {children}
+          <NotificationSystem />
+        </AuthProvider>
       </body>
     </html>
   );

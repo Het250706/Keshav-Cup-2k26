@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/admin';
 export async function GET() {
     try {
         const email = 'admin@keshav.com';
-        const password = '87654321';
+        const password = 'het@2576';
 
         // 1. Try to create the admin user
         const { data, error } = await supabaseAdmin.auth.admin.createUser({

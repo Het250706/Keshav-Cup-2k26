@@ -57,7 +57,7 @@ export default function AnalyticsDashboard() {
         { title: 'Total Players', value: stats.totalPlayers, icon: Users, color: 'var(--primary)' },
         { title: 'Sold Players', value: stats.soldPlayers, icon: UserCheck, color: '#00ff80' },
         { title: 'Unsold Players', value: stats.unsoldPlayers, icon: UserMinus, color: '#ff4b4b' },
-        { title: 'Money Spent', value: `₹ ${(stats.totalMoneySpent / 10000000).toFixed(2)} Cr`, icon: DollarSign, color: '#00d2ff' },
+        { title: 'Pushp Spent', value: `${stats.totalMoneySpent} P`, icon: DollarSign, color: '#00d2ff' },
     ];
 
     return (
@@ -103,7 +103,7 @@ export default function AnalyticsDashboard() {
                                 <span style={{ fontSize: '0.8rem', fontWeight: 900, letterSpacing: '2px' }}>HIGHEST BID PLAYER</span>
                             </div>
                             <h2 style={{ fontSize: '2.5rem', fontWeight: 950, marginBottom: '10px' }}>{stats.highestBid.name}</h2>
-                            <div style={{ fontSize: '3.5rem', fontWeight: 950, color: 'var(--primary)' }}>₹ {(stats.highestBid.amount / 10000000).toFixed(2)} Cr</div>
+                            <div style={{ fontSize: '3.5rem', fontWeight: 950, color: 'var(--primary)' }}>{stats.highestBid.amount} P</div>
                         </div>
                     </div>
                 </motion.div>

@@ -132,6 +132,28 @@ export default function HomePage() {
                 <Shield size={20} />
                 ADMIN PORTAL
               </Link>
+
+              <a
+                href="https://docs.google.com/forms/d/e/1FAIpQLSd1wRv_ZB6pA8GAP3jBcdfOS9VG03c_gQeaSkSYl8kb6eR-iw/viewform"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary"
+                style={{
+                  padding: '16px 32px',
+                  fontSize: '1rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border)',
+                  width: '240px'
+                }}
+              >
+                <Zap size={20} color="var(--primary)" />
+                PLAYER REGISTRATION
+              </a>
             </motion.div>
 
             {/* Features */}

@@ -73,9 +73,7 @@ export default function GlobalHistoryPage() {
                                                 <div className="bid-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div>
                                                         <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1rem' }}>{bid.teams?.name}</span>
-                                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
-                                                            Placed ₹ <span style={{ color: '#fff', fontWeight: 700 }}>{(bid.amount / 10000000).toFixed(2)} Cr</span> bid
-                                                        </div>
+                                                        Placed <span style={{ color: '#fff', fontWeight: 700 }}>{bid.amount} P</span> bid
                                                     </div>
                                                     <div className="bid-info" style={{ textAlign: 'right' }}>
                                                         <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{bid.players?.first_name} {bid.players?.last_name}</div>
@@ -119,7 +117,7 @@ export default function GlobalHistoryPage() {
                                                 <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{p.first_name} {p.last_name}</div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
                                                     <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 800 }}>{p.teams?.name}</div>
-                                                    <div style={{ fontWeight: 900, fontSize: '0.9rem' }}>₹ {(p.sold_price / 10000000).toFixed(2)} Cr</div>
+                                                    <div style={{ fontWeight: 900, fontSize: '0.9rem' }}>{p.sold_price} P</div>
                                                 </div>
                                             </div>
                                         </div>

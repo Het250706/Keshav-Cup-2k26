@@ -29,11 +29,12 @@ export async function POST(request: Request) {
         await supabaseAdmin
             .from('auction_state')
             .update({
-                status: 'active',
+                status: 'BIDDING',
+                bidding_status: 'BIDDING OPEN',
                 current_player_id: player_id,
                 current_highest_bid: 0,
-                last_bid_team_id: null,
-                timer_remaining: 30
+                highest_bid_team_id: null,
+                last_updated_at: new Date().toISOString()
             })
             .eq('id', 1);
 

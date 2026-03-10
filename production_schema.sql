@@ -8,9 +8,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS teams (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT UNIQUE NOT NULL,
-    purse_remaining NUMERIC DEFAULT 1000000000, -- 100 Cr
-    remaining_budget NUMERIC DEFAULT 1000000000, -- Alias for compatibility
-    max_players INTEGER DEFAULT 15,
+    purse_remaining NUMERIC DEFAULT 5000,
+    remaining_budget NUMERIC DEFAULT 5000, -- Alias for compatibility
+    max_players INTEGER DEFAULT 9,
     owner_name TEXT,
     logo_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())

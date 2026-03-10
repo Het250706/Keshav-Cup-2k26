@@ -1,0 +1,42 @@
+{
+  "teams": [
+    {
+      "name": "SHAURYAM",
+      "id": "46a59908-c676-4e75-a928-d9cfc0e13b5a"
+    },
+    {
+      "name": "DIVYAM",
+      "id": "4f3cae2d-8661-4f22-8306-67aa53f3cb56"
+    },
+    {
+      "name": "SATYAM",
+      "id": "c9284456-3825-48bd-a06b-ade0797043dd"
+    },
+    {
+      "name": "DASHATVAM",
+      "id": "c4a7fe32-18a8-4f82-b73e-e58aa4dab684"
+    },
+    {
+      "name": "DHAIRYAM",
+      "id": "cb8b7bd7-36aa-4bda-8d44-88e3e6ec9fff"
+    },
+    {
+      "name": "GYANAM",
+      "id": "9e88cf8f-57af-4e95-905b-3edc6a11ecf6"
+    },
+    {
+      "name": "AISHWARYAM",
+      "id": "1602c0cc-fe96-491c-a40b-121f09577431"
+    },
+    {
+      "name": "ASTIKAYAM",
+      "id": "be768649-45ce-48d4-b32f-b9f538c174f0"
+    }
+  ],
+  "totalPlayers": 15,
+  "countsBySoldTeam": {
+    "AISHWARYAM": 8,
+    "DHAIRYAM": 7
+  },
+  "astikayamPlayers": []
+}

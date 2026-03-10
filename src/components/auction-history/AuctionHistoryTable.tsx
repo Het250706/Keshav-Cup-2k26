@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ScrollText, Calendar, Search, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { fixPhotoUrl } from '@/lib/utils';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function AuctionHistoryTable() {
@@ -59,7 +60,7 @@ export default function AuctionHistoryTable() {
                     <div>IMG</div>
                     <div>PLAYER NAME</div>
                     <div>TEAM</div>
-                    <div>PRICE (Cr)</div>
+                    <div>PRICE (P)</div>
                     <div>TIMESTAMP</div>
                 </div>
 
@@ -87,7 +88,7 @@ export default function AuctionHistoryTable() {
                                 }}
                             >
                                 <div style={{ width: '50px', height: '50px', borderRadius: '12px', overflow: 'hidden', background: '#111', border: '1px solid var(--border)' }}>
-                                    <img src={p.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                    <img src={fixPhotoUrl(p.photo_url) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                                 </div>
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontWeight: 800, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.first_name} {p.last_name}</div>
@@ -98,7 +99,7 @@ export default function AuctionHistoryTable() {
                                         {p.sold_team}
                                     </span>
                                 </div>
-                                <div style={{ fontWeight: 950, color: '#00ff80', fontSize: '1.1rem' }}>₹ {(p.sold_price / 10000000).toFixed(2)} Cr</div>
+                                <div style={{ fontWeight: 950, color: '#00ff80', fontSize: '1.1rem' }}>{p.sold_price} P</div>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                         <Calendar size={12} /> {new Date(p.created_at).toLocaleDateString()}

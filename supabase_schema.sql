@@ -6,9 +6,9 @@ CREATE TABLE teams (
     name TEXT UNIQUE NOT NULL,
     owner_name TEXT NOT NULL,
     logo_url TEXT,
-    total_budget NUMERIC DEFAULT 1000000000, -- 100 Cr default
-    remaining_budget NUMERIC DEFAULT 1000000000,
-    max_players INTEGER DEFAULT 15,
+    total_budget NUMERIC DEFAULT 5000,
+    remaining_budget NUMERIC DEFAULT 5000,
+    max_players INTEGER DEFAULT 9,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -22,20 +22,17 @@ CREATE TABLE admins (
 -- Players Table
 CREATE TABLE players (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    age INTEGER,
-    role TEXT CHECK (role IN ('Batsman', 'Bowler', 'All-rounder', 'Wicketkeeper')),
-    category TEXT CHECK (category IN ('Platinum', 'Gold', 'Silver', 'Emerging')),
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    cricket_skill TEXT,
+    was_present_kc3 TEXT,
+    role TEXT,
+    category TEXT,
     base_price NUMERIC NOT NULL,
-    city TEXT,
-    phone TEXT,
     photo_url TEXT,
-    batting_style TEXT,
-    bowling_style TEXT,
-    is_sold BOOLEAN DEFAULT FALSE,
-    is_unsold BOOLEAN DEFAULT FALSE,
-    team_id UUID REFERENCES teams(id),
+    auction_status TEXT DEFAULT 'pending',
     sold_price NUMERIC,
+    sold_team TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 

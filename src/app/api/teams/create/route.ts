@@ -20,8 +20,8 @@ export async function POST(request: Request) {
             id: authData.user.id,
             name: team_name,
             owner_name: owner_name,
-            total_budget: 1000000000,
-            remaining_budget: 1000000000
+            total_budget: 5000,
+            remaining_budget: 5000
         });
 
         if (teamError) throw teamError;

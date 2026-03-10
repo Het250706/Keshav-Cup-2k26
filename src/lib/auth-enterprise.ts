@@ -12,7 +12,7 @@ import { ADMIN_PASSWORD, CAPTAIN_PASSWORD } from '@/types';
 
 /**
  * Admin login with email and password validation
- * Password: 87654321
+ * Password: het@2576
  */
 export async function loginAdmin(email: string, password: string) {
     try {
