@@ -62,11 +62,11 @@ export default function AuctionRoom({
     useEffect(() => {
         fetchData();
         const stateSub = supabase.channel('auction_room_v3')
-            .on('postgres_changes', { event: '*', table: 'auction_state' }, (p) => {
+            .on('postgres_changes', { event: '*', table: 'auction_state' }, (p: any) => {
                 setAuctionState(p.new);
                 if (p.new && (p.new as any).current_player_id) fetchData();
             })
-            .on('postgres_changes', { event: '*', table: 'teams' }, (p) => {
+            .on('postgres_changes', { event: '*', table: 'teams' }, (p: any) => {
                 if (teamId && (p.new as any).id === teamId) fetchData();
             })
             .on('postgres_changes', { event: 'INSERT', table: 'bids' }, () => {

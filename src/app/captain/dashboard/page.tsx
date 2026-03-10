@@ -57,13 +57,13 @@ export default function DashboardPage() {
     useEffect(() => {
         fetchData();
         const stateSub = supabase.channel('dashboard_sync_v3')
-            .on('postgres_changes', { event: '*', table: 'auction_state' }, (p) => setAuctionState(p.new))
-            .on('postgres_changes', { event: 'INSERT', table: 'bids' }, async (p) => {
+            .on('postgres_changes', { event: '*', table: 'auction_state' }, (p: any) => setAuctionState(p.new))
+            .on('postgres_changes', { event: 'INSERT', table: 'bids' }, async (p: any) => {
                 const { data: bTeam } = await supabase.from('teams').select('name').eq('id', p.new.team_id).single();
                 setLastBidAlert({ ...p.new, team_name: bTeam?.name || 'A Franchise' });
                 setTimeout(() => setLastBidAlert(null), 4000);
             })
-            .on('postgres_changes', { event: '*', table: 'teams' }, (p) => {
+            .on('postgres_changes', { event: '*', table: 'teams' }, (p: any) => {
                 if (team && (p.new as any).id === team.id) setTeam(p.new);
             })
             .on('postgres_changes', { event: '*', table: 'players' }, () => fetchData())

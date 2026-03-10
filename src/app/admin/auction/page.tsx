@@ -50,7 +50,7 @@ function AdminAuctionContent() {
             if (stateRes.data) setAuctionState(stateRes.data);
             if (teamsRes.data) {
                 // Fetch squad counts for each team
-                const teamsWithSquadCount = await Promise.all(teamsRes.data.map(async (t) => {
+                const teamsWithSquadCount = await Promise.all(teamsRes.data.map(async (t: any) => {
                     const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).eq('team_id', t.id).eq('auction_status', 'sold');
                     return { ...t, squad_count: count || 0 };
                 }));
@@ -66,7 +66,7 @@ function AdminAuctionContent() {
     useEffect(() => {
         fetchData();
         const stateSub = supabase.channel('admin_auction_realtime_v3')
-            .on('postgres_changes', { event: '*', table: 'auction_state', schema: 'public' }, (p) => {
+            .on('postgres_changes', { event: '*', table: 'auction_state', schema: 'public' }, (p: any) => {
                 setAuctionState(p.new);
                 if ((p.new as any).status === 'SOLD') {
                     setIsSoldAnimating(true);

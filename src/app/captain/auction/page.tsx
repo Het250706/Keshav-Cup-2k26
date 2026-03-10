@@ -107,7 +107,7 @@ function CaptainAuctionContent() {
         fetchData();
         const stateSub = supabase.channel('captain_auction_realtime')
             .on('postgres_changes', { event: '*', table: 'auction_state', schema: 'public' }, () => fetchData(true))
-            .on('postgres_changes', { event: '*', table: 'teams', schema: 'public' }, (p) => {
+            .on('postgres_changes', { event: '*', table: 'teams', schema: 'public' }, (p: any) => {
                 if (p.new && (p.new as any).captain_email === user?.email) fetchData();
             })
             .on('postgres_changes', { event: '*', table: 'players', schema: 'public' }, () => fetchData())
