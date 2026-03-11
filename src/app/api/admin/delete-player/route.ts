@@ -22,14 +22,35 @@ export async function DELETE(request: Request) {
             .delete()
             .eq('player_id', playerId);
 
-        // 3. Get player info for photo cleanup
+        // 3. Get player info for photo cleanup and budget refund
         const { data: player } = await supabaseAdmin
             .from('players')
-            .select('photo_url')
+            .select('photo_url, auction_status, team_id, sold_price')
             .eq('id', playerId)
             .single();
 
-        // 4. Delete from database
+        // 4. Refund budget if sold
+        if (player && player.auction_status === 'sold' && player.team_id && player.sold_price) {
+            const { data: team } = await supabaseAdmin
+                .from('teams')
+                .select('remaining_budget')
+                .eq('id', player.team_id)
+                .single();
+            
+            if (team) {
+                const currentRemaining = Number(team.remaining_budget) || 0;
+                const soldPrice = Number(player.sold_price) || 0;
+                
+                await supabaseAdmin
+                    .from('teams')
+                    .update({ remaining_budget: currentRemaining + soldPrice })
+                    .eq('id', player.team_id);
+                
+                console.log(`Refunded ${soldPrice} to team ${player.team_id}`);
+            }
+        }
+
+        // 5. Delete from database
         const { error: dbError } = await supabaseAdmin
             .from('players')
             .delete()
@@ -37,7 +58,7 @@ export async function DELETE(request: Request) {
 
         if (dbError) throw dbError;
 
-        // 5. Optional: Delete photo from storage if it exists
+        // 6. Optional: Delete photo from storage if it exists
         if (player?.photo_url) {
             try {
                 const fileName = player.photo_url.split('/').pop();

@@ -65,10 +65,7 @@ export default function Leaderboard({ selectedTeamId }: { selectedTeamId?: strin
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>TEAM SPENDING STATUS</div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{stats.selectedTeamStats?.name || stats.highestSpending?.name || 'N/A'}</div>
                     <div style={{ color: 'var(--secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Spent ${(stats.selectedTeamStats || stats.highestSpending)?.total_budget - (stats.selectedTeamStats || stats.highestSpending)?.remaining_budget} Pushp</span>
-                        {stats.selectedTeamStats && stats.highestSpending && stats.selectedTeamStats.id !== stats.highestSpending.id && (
-                            <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>(Leader: {stats.highestSpending.name})</span>
-                        )}
+                        <span>Spent {(stats.selectedTeamStats || stats.highestSpending)?.total_budget - (stats.selectedTeamStats || stats.highestSpending)?.remaining_budget} Pushp</span>
                     </div>
                 </div>
             </div>
@@ -83,9 +80,6 @@ export default function Leaderboard({ selectedTeamId }: { selectedTeamId?: strin
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{stats.selectedTeamStats?.name || stats.highestRemaining?.name || 'N/A'}</div>
                     <div style={{ fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(stats.selectedTeamStats || stats.highestRemaining)?.remaining_budget} Pushp</span>
-                        {stats.selectedTeamStats && stats.highestRemaining && stats.selectedTeamStats.id !== stats.highestRemaining.id && (
-                            <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>(Leader: {stats.highestRemaining.name})</span>
-                        )}
                     </div>
                 </div>
             </div>

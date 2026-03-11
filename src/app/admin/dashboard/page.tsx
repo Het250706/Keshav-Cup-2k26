@@ -156,6 +156,46 @@ function AdminDashboardContent() {
         }
     };
 
+    const auditBudgets = async () => {
+        if (!confirm('Re-calculate all team budgets based on actual sold players? This will fix discrepancies caused by manual deletions.')) return;
+
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/admin/audit-budgets', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ Team budgets synchronized successfully!');
+                fetchData();
+            } else {
+                throw new Error(data.error || 'Audit failed');
+            }
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const resetPurses = async () => {
+        if (!confirm('🚨 RESET ALL PURSES? This will set every team\'s remaining budget to their MAXIMUM capacity, regardless of current players. Continue?')) return;
+
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/admin/reset-purses', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ All team purses reset successfully!');
+                fetchData();
+            } else {
+                throw new Error(data.error || 'Reset failed');
+            }
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     const currentPlayer = players.find(p => p.id === auctionState?.current_player_id);
 
     if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: '#fff' }}>LOADING CONSOLE...</div>;
@@ -267,21 +307,23 @@ function AdminDashboardContent() {
                                 <h2 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <Users size={18} /> Player Pool ({players.length})
                                 </h2>
-                                <button
-                                    onClick={clearPool}
-                                    style={{
-                                        background: 'rgba(255, 75, 75, 0.1)',
-                                        color: '#ff4b4b',
-                                        border: '1px solid rgba(255, 75, 75, 0.3)',
-                                        padding: '6px 15px',
-                                        borderRadius: '8px',
-                                        fontSize: '0.7rem',
-                                        fontWeight: 900,
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    CLEAR ALL PLAYERS
-                                </button>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        onClick={clearPool}
+                                        style={{
+                                            background: 'rgba(255, 75, 75, 0.1)',
+                                            color: '#ff4b4b',
+                                            border: '1px solid rgba(255, 75, 75, 0.3)',
+                                            padding: '6px 15px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 900,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        CLEAR ALL PLAYERS
+                                    </button>
+                                </div>
                             </div>
                             <div className="scrollable-table" style={{ maxHeight: 'calc(100vh - 250px)', overflowY: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
@@ -425,6 +467,50 @@ function AdminDashboardContent() {
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* MAINTENANCE DANGER ZONE */}
+                    <div style={{ marginTop: '80px', opacity: 0.4, transition: 'opacity 0.3s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                        <div style={{ background: 'rgba(255, 75, 75, 0.05)', border: '1px solid rgba(255, 75, 75, 0.2)', padding: '30px', borderRadius: '25px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 900, color: '#ff4b4b', letterSpacing: '1px', marginBottom: '5px' }}>MAINTENANCE DANGER ZONE</h3>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Advanced synchronization tools for correcting data inconsistencies.</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '15px' }}>
+                                    <button
+                                        onClick={auditBudgets}
+                                        style={{
+                                            background: 'rgba(0, 255, 128, 0.1)',
+                                            color: '#00ff80',
+                                            border: '1px solid rgba(0, 255, 128, 0.3)',
+                                            padding: '10px 20px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 900,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        RE-CALCULATE BUDGETS
+                                    </button>
+                                    <button
+                                        onClick={resetPurses}
+                                        style={{
+                                            background: 'rgba(255, 215, 0, 0.1)',
+                                            color: 'var(--primary)',
+                                            border: '1px solid rgba(255, 215, 0, 0.3)',
+                                            padding: '10px 20px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 900,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        RESET ALL PURSES
+                                    </button>
                                 </div>
                             </div>
                         </div>

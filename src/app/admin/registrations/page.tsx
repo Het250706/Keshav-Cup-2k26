@@ -22,6 +22,7 @@ function RegistrationControlContent() {
     const [loading, setLoading] = useState(true);
     const [pushingId, setPushingId] = useState<string | null>(null);
     const [filterPushed, setFilterPushed] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const fetchRegistrations = async () => {
         setLoading(true);
@@ -178,7 +179,13 @@ function RegistrationControlContent() {
                     <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flex: 1 }}>
                             <Search size={18} color="var(--text-muted)" />
-                            <input type="text" placeholder="Search Registrations..." style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1rem', outline: 'none', width: '100%' }} />
+                            <input 
+                                type="text" 
+                                placeholder="Search Registrations..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1rem', outline: 'none', width: '100%' }} 
+                            />
                         </div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700 }}>
                             <input type="checkbox" checked={filterPushed} onChange={(e) => setFilterPushed(e.target.checked)} />
@@ -203,7 +210,10 @@ function RegistrationControlContent() {
                                     <tr><td colSpan={6} style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>Fetching responses from Google Sheet...</td></tr>
                                 ) : (sheetPlayers.length === 0) ? (
                                     <tr><td colSpan={6} style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>No registrations found.</td></tr>
-                                ) : sheetPlayers.filter(p => filterPushed ? !p.pushed : true).map((p) => {
+                                ) : sheetPlayers
+                                    .filter(p => filterPushed ? !p.pushed : true)
+                                    .filter(p => p.fullName?.toLowerCase().includes(searchTerm.toLowerCase()))
+                                    .map((p) => {
                                     return (
                                         <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: p.pushed ? 'rgba(0, 255, 128, 0.05)' : 'transparent' }}>
                                             <td style={tdStyle}>

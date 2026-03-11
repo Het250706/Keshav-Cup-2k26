@@ -36,8 +36,19 @@ export async function POST() {
 
         if (deleteError) throw deleteError;
 
+        // 6. Reset all team budgets
+        console.log('Resetting all team budgets...');
+        const { data: teams } = await supabaseAdmin.from('teams').select('id, total_budget');
+        if (teams) {
+            for (const team of teams) {
+                await supabaseAdmin.from('teams')
+                    .update({ remaining_budget: team.total_budget })
+                    .eq('id', team.id);
+            }
+        }
+
         console.log('--- POOL CLEARED SUCCESSFULLY ---');
-        return NextResponse.json({ success: true, message: 'All players and related data cleared.' });
+        return NextResponse.json({ success: true, message: 'All players cleared and team budgets reset.' });
 
     } catch (error: any) {
         console.error('CRITICAL_CLEAR_ERROR:', error);

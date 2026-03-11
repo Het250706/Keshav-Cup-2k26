@@ -33,7 +33,10 @@ export async function GET() {
         // Index 7: ક્રિકેટ માં આપની આવડત કઈ ?
         // Index 10: Please upload Your passport size photo for auction
 
-        const players = rows.map((row: any, index: number) => {
+        // Use first row as headers and data starts from second row if needed, 
+        // but Google Gviz usually returns data rows directly if headers are detected.
+        // However, in this case row 0 appears to be the actual header.
+        const players = rows.slice(1).map((row: any, index: number) => {
             const c = row.c;
 
             const getValue = (i: number) => {
@@ -68,7 +71,7 @@ export async function GET() {
                 participation: getValue(6),
                 photo: photoUrl
             };
-        });
+        }).filter((p: any) => p.fullName && p.fullName.trim() !== '');
 
         return NextResponse.json({ players });
     } catch (error: any) {
