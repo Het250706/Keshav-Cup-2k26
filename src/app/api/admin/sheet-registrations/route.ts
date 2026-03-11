@@ -4,51 +4,52 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    console.log('--- SHEET REGISTRATIONS API CALLED ---');
     try {
         const sheetId = '1zyokrUHFwtDuLqsxQXwPANm4ezK7ao81QfyWEnBv7Tk';
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
+        console.log('Fetching from URL:', url);
         const res = await fetch(url, { cache: 'no-store' });
+        
         if (!res.ok) {
+            console.error('Google Sheet fetch failed status:', res.status);
             throw new Error(`Failed to fetch sheet: ${res.statusText}`);
         }
 
         const text = await res.text();
+        console.log('Response text length:', text.length);
 
         // Parse the returned text because Google wraps the JSON in a callback-like structure
-        // google.visualization.Query.setResponse({"version":"0.6", ...});
         const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
         if (!match) {
-            throw new Error('Invalid response format from Google Sheets proxy');
+            console.error('Regex match failed. Raw text starts with:', text.substring(0, 100));
+            throw new Error('Invalid response format from Google Sheets proxy - check if sheet is public');
         }
 
-        const json = JSON.parse(match[1]);
+        let json;
+        try {
+            json = JSON.parse(match[1]);
+        } catch (parseErr: any) {
+            console.error('JSON parse failed for match:', match[1].substring(0, 100));
+            throw new Error('Failed to parse JSON from Google Sheets: ' + parseErr.message);
+        }
+
+        if (!json.table || !json.table.rows) {
+            console.error('Unexpected JSON structure:', Object.keys(json));
+            throw new Error('Unexpected JSON structure from Google Sheets');
+        }
+
         const rows = json.table.rows;
-
-        // Map rows into objects using the sheet headers
-        // Based on the sheet structure:
-        // Index 0: Timestamp
-        // Index 1: NAME Eng (First middle surname)
-        // Index 6: Keshav Cup 3 (2025) માં હાજર હતા ?
-        // Index 7: ક્રિકેટ માં આપની આવડત કઈ ?
-        // Index 10: Please upload Your passport size photo for auction
-
-        // Use first row as headers and data starts from second row if needed, 
-        // but Google Gviz usually returns data rows directly if headers are detected.
-        // However, in this case row 0 appears to be the actual header.
         const players = rows.slice(1).map((row: any, index: number) => {
             const c = row.c;
-
             const getValue = (i: number) => {
                 if (!c || !c[i]) return '';
                 const cell = c[i];
-                // Use formatted value if available, otherwise raw value
                 const val = cell.f || cell.v;
-                if (val === null || val === undefined) return '';
-                return String(val);
+                return val === null || val === undefined ? '' : String(val);
             };
 
-            // Transform Google Drive links to direct image links for display
             let photoUrl = getValue(10);
             if (photoUrl && (photoUrl.includes('drive.google.com') || photoUrl.includes('docs.google.com/uc'))) {
                 let driveId = '';
@@ -57,7 +58,6 @@ export async function GET() {
                 } else if (photoUrl.includes('/d/')) {
                     driveId = photoUrl.split('/d/')[1].split('/')[0];
                 }
-
                 if (driveId) {
                     photoUrl = `https://lh3.googleusercontent.com/d/${driveId}`;
                 }
@@ -73,13 +73,14 @@ export async function GET() {
             };
         }).filter((p: any) => p.fullName && p.fullName.trim() !== '');
 
+        console.log(`Found ${players.length} valid players in sheet`);
         return NextResponse.json({ players });
     } catch (error: any) {
         console.error('Error in sheet-registrations API:', error);
         return NextResponse.json({
             players: [],
-            error: 'Failed to fetch registration data',
-            details: error.message
+            error: error.message || 'Failed to fetch registration data',
+            details: error.stack
         }, { status: 500 });
     }
 }

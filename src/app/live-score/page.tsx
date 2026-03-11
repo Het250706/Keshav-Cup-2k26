@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
-import { Trophy, Zap, MapPin, Users, Settings } from 'lucide-react';
+import { Trophy, Zap, MapPin, Users, Settings, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -126,18 +126,24 @@ export default function LiveScorePage() {
                                     </div>
 
                                     {/* Match Situation */}
-                                    <div style={{ marginTop: '40px', padding: '20px', borderRadius: '20px', background: 'rgba(255, 215, 0, 0.05)', textAlign: 'center', border: '1px solid rgba(255, 215, 0, 0.1)' }}>
-                                        <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+                                    <div style={{ marginTop: '30px', padding: '15px', borderRadius: '15px', background: 'rgba(255, 215, 0, 0.05)', textAlign: 'center', border: '1px solid rgba(255, 215, 0, 0.1)' }}>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.5px' }}>
                                             {match.match_status === 'live' ? (
-                                                match.current_innings === 1
-                                                    ? `${match.batting_team} is batting first`
-                                                    : `${match.batting_team} needs ${match.team1_score - match.team2_score + 1} runs to win`
+                                                `${match.batting_team} is currently batting`
                                             ) : (
-                                                match.team1_score > match.team2_score
-                                                    ? `${match.team1_name} won by ${match.team1_score - match.team2_score} runs`
-                                                    : `${match.team2_name} won by ${match.team1_wickets} wickets`
+                                                `Match Finished`
                                             )}
                                         </div>
+                                    </div>
+
+                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+                                        <button 
+                                            onClick={() => router.push(`/match/${match.id}`)}
+                                            className="btn-primary" 
+                                            style={{ padding: '12px 40px', fontSize: '0.9rem', fontWeight: 900, borderRadius: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}
+                                        >
+                                            <Activity size={18} /> CONTINUE
+                                        </button>
                                     </div>
                                 </motion.div>
                             ))

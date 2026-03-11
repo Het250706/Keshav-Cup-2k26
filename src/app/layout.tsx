@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 import NotificationSystem from '@/components/NotificationSystem';
+import CreditBanner from '@/components/CreditBanner';
 import { AuthProvider } from '@/components/AuthProvider';
 import type { Metadata } from 'next';
 
@@ -26,6 +27,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <NotificationSystem />
+          <CreditBanner />
         </AuthProvider>
       </body>
     </html>

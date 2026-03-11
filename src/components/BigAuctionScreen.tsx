@@ -1,0 +1,516 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
+import { fixPhotoUrl } from '@/lib/utils';
+import { Trophy, User, Users, Gavel, Award, Zap } from 'lucide-react';
+import confetti from 'canvas-confetti';
+
+interface Player {
+  id: string;
+  first_name: string;
+  last_name: string;
+  photo_url: string;
+  cricket_skill: string;
+  base_price: number;
+  auction_status: string;
+  was_present_kc3?: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+}
+
+interface AuctionState {
+  status: 'IDLE' | 'BIDDING' | 'SOLD' | 'UNSOLD';
+  bidding_status: string;
+  current_player_id: string | null;
+  current_highest_bid: number;
+  highest_bid_team_id: string | null;
+}
+
+export default function BigAuctionScreen() {
+  const [auctionState, setAuctionState] = useState<AuctionState | null>(null);
+  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+  const [leadingTeam, setLeadingTeam] = useState<Team | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const prevBidRef = useRef<number>(0);
+  const prevStatusRef = useRef<string>('IDLE');
+  const currentPlayerRef = useRef<Player | null>(null);
+  
+  // Audio Refs
+  const bidSoundRef = useRef<HTMLAudioElement | null>(null);
+  const hammerSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    // Initialize Audio
+    bidSoundRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'); 
+    hammerSoundRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2143/2143-preview.mp3'); 
+    
+    fetchInitialData();
+
+    // Set up Realtime Subscription
+    const channel = supabase
+      .channel('big_auction_screen_realtime')
+      .on(
+        'postgres_changes' as any,
+        { event: '*', table: 'auction_state', schema: 'public' },
+        (payload: any) => {
+          if (payload.new) {
+            handleStateUpdate(payload.new as AuctionState);
+          }
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: 'UPDATE', table: 'players', schema: 'public' },
+        (payload: any) => {
+          const updatedPlayer = payload.new as Player;
+          if (updatedPlayer.id === currentPlayerRef.current?.id) {
+            setCurrentPlayer(updatedPlayer);
+            currentPlayerRef.current = updatedPlayer;
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []); // Run once on mount
+
+  const fetchInitialData = async () => {
+    try {
+      const { data: stateData, error: stateError } = await supabase
+        .from('auction_state')
+        .select('*')
+        .single();
+
+      if (stateError) throw stateError;
+      if (stateData) {
+        await handleStateUpdate(stateData);
+      }
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStateUpdate = async (newState: AuctionState) => {
+    setAuctionState(newState);
+
+    // Play Bid Sound if bid increased
+    if (newState.current_highest_bid > prevBidRef.current) {
+      bidSoundRef.current?.play().catch(() => {});
+      prevBidRef.current = newState.current_highest_bid;
+    }
+
+    // Play Hammer Sound & Confetti if sold
+    if (newState.status === 'SOLD' && prevStatusRef.current !== 'SOLD') {
+      hammerSoundRef.current?.play().catch(() => {});
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FFD700', '#00FF80', '#1E90FF']
+      });
+    }
+    prevStatusRef.current = newState.status || 'IDLE';
+
+    // Fetch Player if changed
+    if (newState.current_player_id && newState.current_player_id !== currentPlayerRef.current?.id) {
+      fetchPlayer(newState.current_player_id);
+    } else if (!newState.current_player_id) {
+      setCurrentPlayer(null);
+      currentPlayerRef.current = null;
+    }
+
+    // Fetch Team Name if changed
+    if (newState.highest_bid_team_id) {
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('id, name')
+        .eq('id', newState.highest_bid_team_id)
+        .single();
+      if (teamData) setLeadingTeam(teamData);
+    } else {
+      setLeadingTeam(null);
+    }
+  };
+
+  const fetchPlayer = async (id: string) => {
+    const { data: playerData } = await supabase
+      .from('players')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (playerData) {
+      setCurrentPlayer(playerData);
+      currentPlayerRef.current = playerData;
+      // Reset bid ref to current when player changes to avoid sound on initial load
+      if (auctionState) prevBidRef.current = auctionState.current_highest_bid;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-500"></div>
+        <p className="text-yellow-500 mt-4 font-bold tracking-widest">INITIALIZING LIVE BROADCAST...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen w-full bg-[#020617] text-white overflow-hidden font-sans relative">
+      {/* Background Gradients */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/20 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-amber-900/10 blur-[120px] rounded-full"></div>
+        <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-purple-900/10 blur-[120px] rounded-full"></div>
+      </div>
+
+      {/* Header */}
+      <header className="relative z-10 h-24 flex items-center justify-center border-b border-white/10 bg-black/40 backdrop-blur-md">
+        <motion.div 
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="flex items-center gap-6"
+        >
+          <div className="h-12 w-12 bg-yellow-500 rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(234,179,8,0.5)]">
+            <Trophy className="text-black" size={32} />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-yellow-200 to-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase">
+            Keshav Cup 2026 Auction
+          </h1>
+          <div className="px-3 py-1 bg-red-600 rounded-md animate-pulse">
+            <span className="text-xs font-bold tracking-widest uppercase">Live</span>
+          </div>
+        </motion.div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 h-[calc(100vh-160px)] px-12 py-8 grid grid-cols-12 gap-8 items-center">
+        
+        {/* Left/Center Section - Player Card */}
+        <div className="col-span-12 lg:col-span-7 h-full flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            {!currentPlayer ? (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                className="text-center"
+              >
+                <div className="mb-8 flex justify-center">
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className="p-8 rounded-full bg-white/5 border border-white/10"
+                  >
+                    <Zap className="text-yellow-500 w-32 h-32" />
+                  </motion.div>
+                </div>
+                <h2 className="text-6xl font-black mb-4 tracking-tight">READY FOR NEXT PLAYER</h2>
+                <p className="text-2xl text-slate-400 font-medium tracking-wide">WAITING FOR ADMIN TO START BIDDING</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={currentPlayer.id}
+                initial={{ opacity: 0, x: -100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, filter: 'blur(20px)' }}
+                className="w-full max-w-4xl"
+              >
+                <div className="relative group">
+                  {/* Glassmorphism Player Card */}
+                  <div className="bg-gradient-to-br from-white/10 to-transparent backdrop-blur-2xl rounded-[3rem] border border-white/20 p-8 shadow-2xl flex flex-col md:flex-row gap-12 items-center">
+                    
+                    {/* Player Image Container */}
+                    <div className="relative">
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="w-80 h-80 rounded-full border-8 border-yellow-500/50 p-2 relative z-10 overflow-hidden shadow-[0_0_50px_rgba(234,179,8,0.2)]"
+                      >
+                        <img 
+                          src={fixPhotoUrl(currentPlayer.photo_url) || 'https://via.placeholder.com/400'} 
+                          alt={currentPlayer.first_name}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      </motion.div>
+                      {/* Category Badge */}
+                      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 bg-yellow-500 text-black px-6 py-2 rounded-full font-black text-xl shadow-xl whitespace-nowrap">
+                        {currentPlayer.cricket_skill?.toUpperCase() || 'PLAYER'}
+                      </div>
+                    </div>
+
+                    {/* Player Info */}
+                    <div className="flex-1 text-center md:text-left space-y-4">
+                      <div className="space-y-0">
+                        <motion.h3 
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="text-4xl font-bold text-yellow-500/80 tracking-tight"
+                        >
+                          {currentPlayer.first_name.toUpperCase()}
+                        </motion.h3>
+                        <motion.h2 
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="text-8xl font-black leading-tight tracking-tighter"
+                        >
+                          {currentPlayer.last_name.toUpperCase()}
+                        </motion.h2>
+                      </div>
+
+                      <div className="flex flex-wrap gap-4 mt-8">
+                        <div className="bg-white/5 border border-white/10 px-6 py-4 rounded-2xl">
+                          <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-1">Base Price</p>
+                          <p className="text-3xl font-black text-white">
+                            {currentPlayer.base_price?.toLocaleString()} <span className="text-yellow-500 text-lg">Pushp</span>
+                          </p>
+                        </div>
+                        {currentPlayer.was_present_kc3 && (
+                          <div className="bg-white/5 border border-white/10 px-6 py-4 rounded-2xl">
+                            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-1">Prev Performance</p>
+                            <p className="text-2xl font-black text-white">{currentPlayer.was_present_kc3}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Right Section - Bidding Info */}
+        <div className="col-span-12 lg:col-span-5 h-full flex flex-col justify-center space-y-8">
+          
+          {/* Current Bid Display */}
+          <div className="bg-gradient-to-br from-yellow-500/20 to-transparent backdrop-blur-xl rounded-[2.5rem] border border-yellow-500/30 p-10 relative overflow-hidden shadow-[0_0_80px_rgba(234,179,8,0.1)]">
+            <div className="absolute top-0 right-0 p-6 opacity-10">
+              <Gavel size={120} />
+            </div>
+            
+            <p className="text-yellow-500 font-black text-2xl tracking-[0.2em] uppercase mb-4 drop-shadow-md">
+              Current Highest Bid
+            </p>
+            
+            <motion.div
+              key={auctionState?.current_highest_bid}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="relative"
+            >
+              <span className="text-[10rem] font-black leading-none tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                {auctionState?.current_highest_bid?.toLocaleString() || '0'}
+              </span>
+              <span className="text-4xl font-bold text-yellow-500 ml-4">Pushp</span>
+            </motion.div>
+
+            {leadingTeam ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 flex items-center gap-4 bg-white/10 rounded-2xl p-6 border border-white/10"
+              >
+                <div className="h-14 w-14 bg-white/10 rounded-full flex items-center justify-center">
+                  <Users className="text-yellow-500" size={28} />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Leading Team</p>
+                  <p className="text-4xl font-black text-white">{leadingTeam.name.toUpperCase()}</p>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="mt-8 text-slate-500 font-bold tracking-widest text-xl">
+                NO BIDS YET
+              </div>
+            )}
+          </div>
+
+          {/* Auction Status Indicator */}
+          <div className="grid grid-cols-2 gap-6">
+            <div className={`rounded-3xl p-6 border flex flex-col items-center justify-center transition-all duration-500 ${auctionState?.status === 'BIDDING' ? 'bg-green-500/20 border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.2)]' : 'bg-slate-900/50 border-white/10'}`}>
+              <div className={`p-2 rounded-full mb-3 ${auctionState?.status === 'BIDDING' ? 'bg-green-500 animate-pulse' : 'bg-slate-700'}`}></div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Status</p>
+              <p className="text-2xl font-black">{auctionState?.status || 'IDLE'}</p>
+            </div>
+            
+            <div className="bg-slate-900/50 rounded-3xl p-6 border border-white/10 flex flex-col items-center justify-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Involved Teams</p>
+              <p className="text-3xl font-black text-white">ALL</p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Bottom Status Bar */}
+      <footer className="relative z-10 h-16 bg-black/80 backdrop-blur-xl border-t border-white/10 flex items-center px-12 overflow-hidden">
+        <div className="flex items-center gap-8 w-full">
+          <div className="flex items-center gap-2 text-yellow-500 font-bold whitespace-nowrap">
+            <Award size={20} />
+            <span className="uppercase tracking-widest text-sm">Auction Protocol V3.0</span>
+          </div>
+          <div className="h-4 w-[1px] bg-white/20"></div>
+          
+          {/* Marquee effect for status transitions */}
+          <div className="flex-1 overflow-hidden">
+             <motion.div 
+               animate={{ x: [0, -100, 0] }}
+               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+               className="text-slate-400 font-medium tracking-[0.3em] uppercase text-sm whitespace-nowrap"
+             >
+                {auctionState?.bidding_status || 'System Standby'} • Secure Bidding Enabled • Pure Realtime Sync • Next Generation Display {auctionState?.bidding_status && `• ${auctionState.bidding_status}`}
+             </motion.div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2">
+               <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Server: OK</span>
+             </div>
+             <div className="px-4 py-1 bg-white/5 rounded-full border border-white/10">
+               <span className="text-xs font-bold text-white tracking-widest">2026 EDITION</span>
+             </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* SOLD BANNER OVERLAY */}
+      <AnimatePresence>
+        {auctionState?.status === 'SOLD' && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-lg flex items-center justify-center p-8"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0, rotate: -5 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="text-center space-y-8"
+            >
+              <motion.div
+                animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
+                transition={{ duration: 1.5, repeat: 1 }}
+                className="inline-block"
+              >
+                <Gavel className="text-yellow-500 w-48 h-48 mx-auto" />
+              </motion.div>
+              
+              <div className="space-y-2">
+                <h2 className="text-[12rem] font-black leading-none text-transparent bg-clip-text bg-gradient-to-b from-green-400 to-green-700 drop-shadow-[0_0_50px_rgba(34,197,94,0.5)] uppercase italic">
+                  Sold!
+                </h2>
+                <div className="h-2 w-full bg-gradient-to-r from-transparent via-green-500 to-transparent"></div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-5xl font-black text-white">
+                  {currentPlayer?.first_name?.toUpperCase()} {currentPlayer?.last_name?.toUpperCase()}
+                </p>
+                <div className="flex items-center justify-center gap-6">
+                   <p className="text-3xl font-medium text-slate-400">TO</p>
+                   <p className="text-6xl font-black text-yellow-500 tracking-tighter">
+                     {leadingTeam?.name?.toUpperCase() || 'TEAM'}
+                   </p>
+                </div>
+                <div className="inline-block bg-white/10 px-8 py-3 rounded-2xl border border-white/20">
+                  <p className="text-4xl font-black text-white">
+                    {auctionState?.current_highest_bid?.toLocaleString()} <span className="text-yellow-500 text-xl">PUSHP</span>
+                  </p>
+                </div>
+              </div>
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setAuctionState(prev => prev ? {...prev, status: 'IDLE'} : null)}
+                className="px-12 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full font-bold tracking-widest text-slate-400 transition-colors"
+              >
+                DISMISS
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* UNSOLD BANNER OVERLAY */}
+      <AnimatePresence>
+        {auctionState?.status === 'UNSOLD' && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-lg flex items-center justify-center p-8"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="text-center space-y-8"
+            >
+              <div className="space-y-2">
+                <h2 className="text-[12rem] font-black leading-none text-transparent bg-clip-text bg-gradient-to-b from-red-400 to-red-700 drop-shadow-[0_0_50px_rgba(239,68,68,0.5)] uppercase italic">
+                  Unsold
+                </h2>
+                <div className="h-2 w-full bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-5xl font-black text-white">
+                  {currentPlayer?.first_name?.toUpperCase()} {currentPlayer?.last_name?.toUpperCase()}
+                </p>
+                <p className="text-2xl text-slate-400 font-bold tracking-widest uppercase">
+                  No bids received for this player
+                </p>
+              </div>
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setAuctionState(prev => prev ? {...prev, status: 'IDLE'} : null)}
+                className="px-12 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full font-bold tracking-widest text-slate-400 transition-colors"
+              >
+                DISMISS
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CLICK TO ENABLE AUDIO OVERLAY (Browser policy) */}
+      {!loading && !prevStatusRef.current.includes('IDLE') && (
+        <div className="hidden">
+           {/* This is a placeholder for audio init, usually browsers need one click */}
+        </div>
+      )}
+
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+          font-family: 'Inter', sans-serif;
+          background-color: #020617;
+          margin: 0;
+          overflow: hidden;
+        }
+
+        .text-glow {
+          text-shadow: 0 0 20px rgba(234,179,8,0.4);
+        }
+      `}</style>
+    </div>
+  );
+}

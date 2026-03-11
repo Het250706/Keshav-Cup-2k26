@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PublicScoreboard() {
     const [match, setMatch] = useState<any>(null);
+    const [nextMatch, setNextMatch] = useState<any>(null);
     const [innings, setInnings] = useState<any[]>([]);
     const [stats, setStats] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -39,13 +40,15 @@ export default function PublicScoreboard() {
 
         if (activeMatch) {
             setMatch(activeMatch);
-            const [{ data: innData }, { data: statsData }] = await Promise.all([
+            const [{ data: innData }, { data: statsData }, { data: upMatch }] = await Promise.all([
                 supabase.from('innings').select('*').eq('match_id', activeMatch.id).order('innings_number', { ascending: true }),
-                supabase.from('player_match_stats').select('*, players(*)').eq('match_id', activeMatch.id)
+                supabase.from('player_match_stats').select('*, players(*)').eq('match_id', activeMatch.id),
+                supabase.from('matches').select('*, team_a:teams!team_a_id(*), team_b:teams!team_b_id(*)').eq('status', 'scheduled').order('created_at', { ascending: true }).limit(1).maybeSingle()
             ]);
 
             if (innData) setInnings(innData);
             if (statsData) setStats(statsData);
+            if (upMatch) setNextMatch(upMatch);
         }
         setLoading(false);
     };
@@ -95,27 +98,86 @@ export default function PublicScoreboard() {
                         <h1 style={{ fontSize: '2.5rem', fontWeight: 950, marginTop: '10px' }}>{match.match_name}</h1>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '40px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center', gap: '20px md:40px' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '2rem', fontWeight: 950 }}>{match.team_a.name}</div>
-                            {innings[0]?.batting_team_id === match.team_a_id && <ScoreDisplay inn={innings[0]} />}
-                            {innings[1]?.batting_team_id === match.team_a_id && <ScoreDisplay inn={innings[1]} />}
+                            <div style={{ fontSize: 'clamp(1.2rem, 4vw, 2rem)', fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.team_a.name}</div>
+                            {match.status === 'live' && innings[0]?.batting_team_id === match.team_a_id && <ScoreDisplay inn={innings[0]} />}
+                            {match.status === 'live' && innings[1]?.batting_team_id === match.team_a_id && <ScoreDisplay inn={innings[1]} />}
                         </div>
 
-                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.2)' }}>VS</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'rgba(255,255,255,0.2)' }}>VS</div>
 
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '2rem', fontWeight: 950 }}>{match.team_b.name}</div>
-                            {innings[0]?.batting_team_id === match.team_b_id && <ScoreDisplay inn={innings[0]} />}
-                            {innings[1]?.batting_team_id === match.team_b_id && <ScoreDisplay inn={innings[1]} />}
+                            <div style={{ fontSize: 'clamp(1.2rem, 4vw, 2rem)', fontWeight: 950, overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.team_b.name}</div>
+                            {match.status === 'live' && innings[0]?.batting_team_id === match.team_b_id && <ScoreDisplay inn={innings[0]} />}
+                            {match.status === 'live' && innings[1]?.batting_team_id === match.team_b_id && <ScoreDisplay inn={innings[1]} />}
                         </div>
                     </div>
 
+                    {/* Target Logic */}
+                    {innings.length === 2 && !innings[1].is_completed && innings[0].is_completed && (
+                        <div style={{ marginTop: '30px', padding: '20px', background: 'rgba(0, 255, 128, 0.05)', borderRadius: '20px', border: '1px solid rgba(0, 255, 128, 0.1)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'rgba(0,255,128,0.7)', fontWeight: 900, textTransform: 'uppercase' }}>Runs Required</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 950, color: '#00ff80' }}>
+                                        {Math.max(0, (innings[0].runs + 1) - innings[1].runs)}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'rgba(0,255,128,0.7)', fontWeight: 900, textTransform: 'uppercase' }}>Balls Remaining</div>
+                                    <div style={{ fontSize: '1.8rem', fontWeight: 950, color: '#00ff80' }}>
+                                        {(() => {
+                                            const totalBalls = (match.max_overs || 8) * 6;
+                                            const currentOvers = innings[1].overs || 0;
+                                            const ballsBowled = Math.floor(currentOvers) * 6 + Math.round((currentOvers - Math.floor(currentOvers)) * 10);
+                                            return Math.max(0, totalBalls - ballsBowled);
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {match.status === 'completed' && match.winner_team_id && (
                         <div style={{ marginTop: '40px', padding: '20px', background: 'rgba(0, 255, 128, 0.1)', border: '1px solid #00ff80', borderRadius: '20px', textAlign: 'center' }}>
-                            <h2 style={{ color: '#00ff80', fontWeight: 950 }}>
+                            <h2 style={{ color: '#00ff80', fontWeight: 950, fontSize: 'clamp(1rem, 4vw, 1.5rem)' }}>
                                 {match.winner_team_id === match.team_a_id ? match.team_a.name : match.team_b.name} WON THE MATCH
                             </h2>
+                        </div>
+                    )}
+
+                    {/* Live Players Info */}
+                    {match.status === 'live' && currentInn && (
+                        <div style={{ marginTop: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <div style={{ padding: '8px', background: 'rgba(255,215,0,0.1)', borderRadius: '10px' }}>
+                                    <User size={20} color="var(--primary)" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>BATSMAN</div>
+                                    <div style={{ fontWeight: 800 }}>
+                                        {(() => {
+                                            const player = stats.find(s => s.player_id === currentInn.striker_id);
+                                            return player ? `${player.players?.first_name} ${player.players?.last_name}` : 'Waiting...';
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderLeft: '1px solid var(--border)', paddingLeft: '15px' }}>
+                                <div style={{ padding: '8px', background: 'rgba(0,255,128,0.1)', borderRadius: '10px' }}>
+                                    <Activity size={20} color="#00ff80" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>BOWLER</div>
+                                    <div style={{ fontWeight: 800 }}>
+                                    {(() => {
+                                            const player = stats.find(s => s.player_id === currentInn.bowler_id);
+                                            return player ? `${player.players?.first_name} ${player.players?.last_name}` : 'Waiting...';
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -167,7 +229,7 @@ export default function PublicScoreboard() {
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
                                         <div style={{ fontSize: '1.1rem', fontWeight: 900 }}>{s.wickets_taken} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Wkts</span></div>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.overs_bowled.toFixed(1)} Overs</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{(s.overs_bowled || 0).toFixed(1)} Overs</div>
                                     </div>
                                 </div>
                             ))}
@@ -175,6 +237,17 @@ export default function PublicScoreboard() {
                     </div>
 
                 </div>
+
+                {/* Upcoming Match Section */}
+                {nextMatch && (
+                    <div className="glass" style={{ padding: '25px', borderRadius: '30px', marginTop: '30px', border: '1px dashed var(--primary)', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '2px', marginBottom: '10px' }}>UPCOMING MATCH</div>
+                        <div style={{ fontSize: '1.3rem', fontWeight: 950 }}>
+                            {nextMatch.team_a?.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0 15px' }}>VS</span> {nextMatch.team_b?.name}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '5px' }}>{nextMatch.match_name} • {nextMatch.venue}</div>
+                    </div>
+                )}
             </div>
 
             <style jsx>{`

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS matches (
     team_b_id UUID REFERENCES teams(id) ON DELETE CASCADE,
     venue TEXT DEFAULT 'Main Ground',
     status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'live', 'completed')),
+    max_overs INTEGER DEFAULT 8, -- New column for configurable overs
     toss_winner_id UUID REFERENCES teams(id),
     toss_decision TEXT CHECK (toss_decision IN ('Batting', 'Bowling')),
     batting_first_id UUID REFERENCES teams(id),
@@ -36,6 +37,8 @@ CREATE TABLE IF NOT EXISTS innings (
     runs INTEGER DEFAULT 0,
     wickets INTEGER DEFAULT 0,
     overs NUMERIC DEFAULT 0.0,
+    striker_id UUID REFERENCES players(id),
+    bowler_id UUID REFERENCES players(id),
     is_completed BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(match_id, innings_number)
@@ -61,6 +64,7 @@ CREATE TABLE IF NOT EXISTS match_events (
     bowler_id UUID REFERENCES players(id),
     runs_off_bat INTEGER DEFAULT 0,
     extras INTEGER DEFAULT 0,
+    extra_type TEXT, -- wide, nb, etc.
     is_wicket BOOLEAN DEFAULT false,
     wicket_type TEXT,
     dismissed_player_id UUID REFERENCES players(id),
@@ -84,11 +88,37 @@ CREATE TABLE IF NOT EXISTS player_match_stats (
     PRIMARY KEY (match_id, player_id)
 );
 
--- 7. ENABLE REALTIME
-ALTER PUBLICATION supabase_realtime ADD TABLE matches;
-ALTER PUBLICATION supabase_realtime ADD TABLE innings;
-ALTER PUBLICATION supabase_realtime ADD TABLE match_events;
-ALTER PUBLICATION supabase_realtime ADD TABLE player_match_stats;
+-- 7. ENABLE REALTIME SAFELY (DOES NOT ERROR IF ALREADY ENABLED)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'matches'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE matches;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'innings'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE innings;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'match_events'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE match_events;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'player_match_stats'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE player_match_stats;
+    END IF;
+END $$;
 
 -- 8. RLS POLICIES
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;

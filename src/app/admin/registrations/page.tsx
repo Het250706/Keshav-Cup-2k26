@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -27,10 +26,20 @@ function RegistrationControlContent() {
     const fetchRegistrations = async () => {
         setLoading(true);
         try {
-            const [sheetRes, dbRes] = await Promise.all([
-                fetch('/api/admin/sheet-registrations').then(res => res.json()),
-                supabase.from('players').select('id, first_name, last_name, cricket_skill')
-            ]);
+            const sheetResponse = await fetch('/api/admin/sheet-registrations');
+            let sheetRes;
+            if (!sheetResponse.ok) {
+                const errorText = await sheetResponse.text();
+                throw new Error(`Server returned ${sheetResponse.status}: ${errorText.substring(0, 100)}...`);
+            }
+            const contentType = sheetResponse.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await sheetResponse.text();
+                throw new Error(`Expected JSON but received ${contentType}. Content: ${text.substring(0, 100)}...`);
+            }
+            sheetRes = await sheetResponse.json();
+
+            const dbRes = await supabase.from('players').select('id, first_name, last_name, cricket_skill');
 
             if (sheetRes.players) {
                 const dbPlayers = (dbRes.data || []) as any[];

@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import RoleGuard from '@/components/RoleGuard';
 import { fixPhotoUrl } from '@/lib/utils';
-
+import MatchScorecard from '@/components/MatchScorecard';
 export default function AdminLiveScorePage() {
     return (
         <RoleGuard allowedRole="admin">
@@ -45,7 +45,8 @@ function AdminLiveScoreContent() {
         match_type: 'League Match',
         team_a_id: '',
         team_b_id: '',
-        venue: 'Main Stadium'
+        venue: 'Main Stadium',
+        max_overs: '8'
     });
 
     const [tossData, setTossData] = useState({
@@ -56,15 +57,25 @@ function AdminLiveScoreContent() {
     // Scoring State
     const [currentInnings, setCurrentInnings] = useState<any>(null);
     const [strikerId, setStrikerId] = useState('');
-    const [nonStrikerId, setNonStrikerId] = useState('');
     const [bowlerId, setBowlerId] = useState('');
-    const [selectedWicketType, setSelectedWicketType] = useState('Caught');
-    const [dismissedId, setDismissedId] = useState('');
-    const [wicketTakerId, setWicketTakerId] = useState('');
     const [showWicketModal, setShowWicketModal] = useState(false);
+    const [selectedWicketType, setSelectedWicketType] = useState('Bowled');
+    const [dismissedId, setDismissedId] = useState('');
+    const [firstInningsRuns, setFirstInningsRuns] = useState<number | null>(null);
+    const [scoringTab, setScoringTab] = useState<'live' | 'team_a' | 'team_b'>('live');
+    const [matchEvents, setMatchEvents] = useState<any[]>([]);
 
     // Stats State
     const [tournamentStats, setTournamentStats] = useState<any[]>([]);
+
+    const getTeamName = (teamId: string) => {
+        if (!teamId) return 'TBD';
+        const team = teams?.find(t => t.id === teamId);
+        if (team?.name) return team.name;
+        if (teamId === activeMatch?.team_a_id && activeMatch?.team_a?.name) return activeMatch.team_a.name;
+        if (teamId === activeMatch?.team_b_id && activeMatch?.team_b?.name) return activeMatch.team_b.name;
+        return teamId === activeMatch?.team_a_id ? 'Team A' : 'Team B';
+    };
 
     useEffect(() => {
         init();
@@ -125,6 +136,7 @@ function AdminLiveScoreContent() {
             team_a_id: formData.team_a_id,
             team_b_id: formData.team_b_id,
             venue: formData.venue,
+            max_overs: parseInt(formData.max_overs),
             status: 'scheduled'
         }]).select().single();
 
@@ -140,6 +152,52 @@ function AdminLiveScoreContent() {
             await prepareSquad(data);
             setView('squad');
         }
+    };
+
+    const handleContinueMatch = async (match: any) => {
+        setLoading(true);
+        setActiveMatch(match);
+
+        // 1. Fetch Latest Innings
+        const { data: inn } = await supabase
+            .from('innings')
+            .select('*')
+            .eq('match_id', match.id)
+            .order('innings_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        // 2. Fetch Match Squads (required for both Toss and Scoring)
+        await fetchMatchSquad(match);
+
+        if (inn) {
+            setCurrentInnings(inn);
+            if (inn.innings_number === 2) {
+                const { data: inn1 } = await supabase.from('innings').select('runs').eq('match_id', match.id).eq('innings_number', 1).single();
+                if (inn1) setFirstInningsRuns(inn1.runs);
+            }
+            if (match.status === 'completed') {
+                setScoringTab('team_a');
+            } else {
+                setScoringTab('live');
+            }
+            fetchMatchEvents(match.id);
+            setView('scoring');
+        } else {
+            // No innings yet, check if squads are saved
+            const { count } = await supabase
+                .from('match_players')
+                .select('*', { count: 'exact', head: true })
+                .eq('match_id', match.id);
+
+            if (count && count > 0) {
+                setView('toss');
+            } else {
+                await prepareSquad(match);
+                setView('squad');
+            }
+        }
+        setLoading(false);
     };
 
     const prepareSquad = async (match: any) => {
@@ -182,6 +240,7 @@ function AdminLiveScoreContent() {
     };
 
     const handleSaveSquad = async () => {
+        if (!activeMatch) { alert('No active match found'); return; }
         if (selectedSquadA.length === 0 || selectedSquadB.length === 0) {
             alert('Please select at least one player for each team');
             return;
@@ -202,8 +261,8 @@ function AdminLiveScoreContent() {
     };
 
     const handleSaveToss = async () => {
-        if (!tossData.toss_winner_id) {
-            alert('Please select toss winner');
+        if (!tossData.toss_winner_id || !activeMatch) {
+            alert('Please select toss winner and ensure match data is loaded');
             return;
         }
 
@@ -233,34 +292,43 @@ function AdminLiveScoreContent() {
             if (innError) alert('Error initializing innings');
             else {
                 setCurrentInnings(inn);
-                await fetchMatchSquad(activeMatch.id);
+                await fetchMatchSquad(activeMatch);
                 setView('scoring');
             }
         }
     };
 
-    const fetchMatchSquad = async (matchId: string) => {
-        const { data } = await supabase.from('match_players').select('*, players(*)').eq('match_id', matchId);
+    const fetchMatchSquad = async (match: any) => {
+        if (!match) return;
+        const { data } = await supabase.from('match_players').select('*, players(*)').eq('match_id', match.id);
         if (data) {
-            setMatchPlayersA(data.filter((p: any) => p.team_id === activeMatch.team_a_id).map((p: any) => p.players));
-            setMatchPlayersB(data.filter((p: any) => p.team_id === activeMatch.team_b_id).map((p: any) => p.players));
+            setMatchPlayersA(data.filter((p: any) => p.team_id === match.team_a_id).map((p: any) => p.players));
+            setMatchPlayersB(data.filter((p: any) => p.team_id === match.team_b_id).map((p: any) => p.players));
         }
+    };
+
+    // --- SYNC LIVE PLAYERS ---
+    useEffect(() => {
+        if (!currentInnings || (!strikerId && !bowlerId)) return;
+        
+        const syncPlayers = async () => {
+            await supabase.from('innings').update({
+                striker_id: strikerId || null,
+                bowler_id: bowlerId || null
+            }).eq('id', currentInnings.id);
+        };
+        
+        syncPlayers();
+    }, [strikerId, bowlerId, currentInnings?.id]);
+
+    const fetchMatchEvents = async (matchId: string) => {
+        const { data } = await supabase.from('match_events').select('*, striker:players!striker_id(*), bowler:players!bowler_id(*), dismissed:players!dismissed_player_id(*)').eq('match_id', matchId).order('created_at', { ascending: true });
+        if (data) setMatchEvents(data);
     };
 
     // --- SCORING ACTIONS ---
 
-    const incrementOver = (current: number) => {
-        let overs = Math.floor(current);
-        let balls = Math.round((current - overs) * 10);
-        balls++;
-        if (balls >= 6) {
-            overs++;
-            balls = 0;
-        }
-        return overs + (balls / 10);
-    };
-
-    const recordBall = async (runs: number, isWicket: boolean = false, extraType: 'none' | 'wide' | 'nb' | 'bye' | 'lb' = 'none') => {
+    const recordBall = async (runs: number, isWicket: boolean = false, extraType: 'none' | 'wide' | 'nb' = 'none') => {
         if (!strikerId || !bowlerId || !currentInnings) {
             alert('Please select striker and bowler');
             return;
@@ -268,139 +336,228 @@ function AdminLiveScoreContent() {
 
         if (isWicket && !showWicketModal) {
             setDismissedId(strikerId);
-            setWicketTakerId(bowlerId);
             setShowWicketModal(true);
             return;
         }
 
-        const isLegalBall = extraType === 'none' || extraType === 'bye' || extraType === 'lb';
-        const nextOver = isLegalBall ? incrementOver(currentInnings.overs || 0) : (currentInnings.overs || 0);
-
+        const isLegalBall = extraType === 'none';
         const extraRuns = (extraType === 'wide' || extraType === 'nb') ? 1 : 0;
         const totalBallRuns = runs + extraRuns;
 
-        // 1. Update Innings
+        // 1. Calculate Score & Overs
+        const newRuns = (currentInnings.runs || 0) + totalBallRuns;
+        const newWickets = (currentInnings.wickets || 0) + (isWicket ? 1 : 0);
+        
+        let currentOvers = currentInnings.overs || 0;
+        let oversInt = Math.floor(currentOvers);
+        let balls = Math.round((currentOvers - oversInt) * 10);
+        
+        if (isLegalBall) {
+            balls++;
+            if (balls >= 6) {
+                oversInt++;
+                balls = 0;
+            }
+        }
+        const nextOver = oversInt + (balls / 10);
+
+        // 2. Update Innings in DB
         const { error: innErr } = await supabase.from('innings').update({
-            runs: (currentInnings.runs || 0) + totalBallRuns,
-            wickets: (currentInnings.wickets || 0) + (isWicket ? 1 : 0),
+            runs: newRuns,
+            wickets: newWickets,
             overs: nextOver
         }).eq('id', currentInnings.id);
 
         if (innErr) { alert('Error updating scoreboard'); return; }
 
-        // 2. Record Event
+        // 3. Record Event
         await supabase.from('match_events').insert([{
             match_id: activeMatch.id,
             innings_number: currentInnings.innings_number,
             striker_id: strikerId,
-            non_striker_id: nonStrikerId || null,
             bowler_id: bowlerId,
             runs_off_bat: (extraType === 'none' || extraType === 'nb') ? runs : 0,
-            extras: (extraType !== 'none' ? (extraType === 'wide' || extraType === 'nb' ? 1 + runs : runs) : 0),
+            extras: extraRuns + (extraType === 'none' ? 0 : runs),
             extra_type: extraType !== 'none' ? extraType : null,
             is_wicket: isWicket,
             wicket_type: isWicket ? selectedWicketType : null,
             dismissed_player_id: isWicket ? dismissedId : null,
             over_number: Math.floor(nextOver),
-            ball_number: isLegalBall ? (Math.round((nextOver - Math.floor(nextOver)) * 10) || 6) : (Math.round((currentInnings.overs - Math.floor(currentInnings.overs)) * 10))
+            ball_number: balls || 6
         }]);
 
-        // 3. Update Player Match Stats (Striker)
-        if (extraType !== 'wide') {
-            const { data: strikerStats } = await supabase.from('player_match_stats').select('*').eq('match_id', activeMatch.id).eq('player_id', strikerId).maybeSingle();
-            const batRuns = (extraType === 'none' || extraType === 'nb') ? runs : 0;
-            const ballFaced = extraType === 'nb' ? 0 : 1;
+        fetchMatchEvents(activeMatch.id);
 
-            if (strikerStats) {
-                await supabase.from('player_match_stats').update({
-                    runs_scored: strikerStats.runs_scored + batRuns,
-                    balls_faced: strikerStats.balls_faced + ballFaced,
-                    fours: strikerStats.fours + (batRuns === 4 ? 1 : 0),
-                    sixes: strikerStats.sixes + (batRuns === 6 ? 1 : 0)
-                }).eq('match_id', activeMatch.id).eq('player_id', strikerId);
-            } else {
-                await supabase.from('player_match_stats').insert([{
-                    match_id: activeMatch.id,
-                    player_id: strikerId,
-                    team_id: currentInnings.batting_team_id,
-                    runs_scored: batRuns,
-                    balls_faced: ballFaced,
-                    fours: batRuns === 4 ? 1 : 0,
-                    sixes: batRuns === 6 ? 1 : 0
-                }]);
+        // 4. Refresh State & Check For Innings Completion / Target Reached
+        const { data: refreshedInn } = await supabase.from('innings').select('*').eq('id', currentInnings.id).single();
+        if (refreshedInn) {
+            setCurrentInnings(refreshedInn);
+            const maxOvers = activeMatch?.max_overs || 8;
+            
+            // Auto-detect Over Completion
+            if (isLegalBall && balls === 0) {
+                alert('Over completed! Please change the bowler.');
+                setBowlerId('');
+            }
+
+            // Check Target Reached (2nd Innings)
+            if (refreshedInn.innings_number === 2 && firstInningsRuns !== null) {
+                if (refreshedInn.runs > firstInningsRuns) {
+                    alert('TARGET REACHED! MATCH ENDED.');
+                    await endInnings();
+                    return;
+                }
+            }
+
+            if (refreshedInn.overs >= maxOvers) {
+                alert('Innings Complete! Overs Finished.');
+                endInnings();
             }
         }
 
-        // 4. Update Player Match Stats (Bowler)
-        const { data: bowlerStats } = await supabase.from('player_match_stats').select('*').eq('match_id', activeMatch.id).eq('player_id', bowlerId).maybeSingle();
-        const runsConceded = (extraType === 'wide' || extraType === 'nb') ? 1 + runs : (extraType === 'none' ? runs : 0);
-
-        if (bowlerStats) {
-            await supabase.from('player_match_stats').update({
-                runs_conceded: bowlerStats.runs_conceded + runsConceded,
-                overs_bowled: isLegalBall ? incrementOver(bowlerStats.overs_bowled || 0) : (bowlerStats.overs_bowled || 0),
-                wickets_taken: bowlerStats.wickets_taken + (isWicket ? 1 : 0)
-            }).eq('match_id', activeMatch.id).eq('player_id', bowlerId);
-        } else {
-            await supabase.from('player_match_stats').insert([{
-                match_id: activeMatch.id,
-                player_id: bowlerId,
-                team_id: currentInnings.bowling_team_id,
-                runs_conceded: runsConceded,
-                overs_bowled: isLegalBall ? 0.1 : 0.0,
-                wickets_taken: isWicket ? 1 : 0
-            }]);
-        }
-
-        const { data: refreshedInn } = await supabase.from('innings').select('*').eq('id', currentInnings.id).single();
-        if (refreshedInn) setCurrentInnings(refreshedInn);
         if (isWicket) {
             setShowWicketModal(false);
             setStrikerId('');
         }
     };
 
+    const handleUndo = async () => {
+        if (!currentInnings || !confirm('Undo last ball?')) return;
+
+        const { data: lastEvent } = await supabase
+            .from('match_events')
+            .select('*')
+            .eq('match_id', activeMatch.id)
+            .eq('innings_number', currentInnings.innings_number)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (!lastEvent) {
+            alert('No balls to undo');
+            return;
+        }
+
+        await supabase.from('match_events').delete().eq('id', lastEvent.id);
+
+        const { data: allEvents } = await supabase
+            .from('match_events')
+            .select('*')
+            .eq('match_id', activeMatch.id)
+            .eq('innings_number', currentInnings.innings_number);
+
+        let totalRuns = 0;
+        let totalWickets = 0;
+        let legalBalls = 0;
+
+        allEvents?.forEach((e: any) => {
+            totalRuns += (e.runs_off_bat || 0) + (e.extras || 0);
+            if (e.is_wicket) totalWickets++;
+            if (e.extra_type !== 'wide' && e.extra_type !== 'nb') legalBalls++;
+        });
+
+        const overs = Math.floor(legalBalls / 6) + ((legalBalls % 6) / 10);
+
+        await supabase.from('innings').update({
+            runs: totalRuns,
+            wickets: totalWickets,
+            overs: overs
+        }).eq('id', currentInnings.id);
+
+        fetchMatchEvents(activeMatch.id);
+        const { data: refreshedInn } = await supabase.from('innings').select('*').eq('id', currentInnings.id).single();
+        if (refreshedInn) setCurrentInnings(refreshedInn);
+        alert('Last ball undone successfully');
+    };
+
     const endInnings = async () => {
+        if (!activeMatch || !currentInnings) {
+            alert("Error: Match data not loaded correctly.");
+            return;
+        }
+
         if (!confirm('Are you sure you want to end this innings?')) return;
 
-        if (currentInnings.innings_number === 1) {
-            const { data: inn2, error } = await supabase.from('innings').insert([{
-                match_id: activeMatch.id,
-                innings_number: 2,
-                batting_team_id: currentInnings.bowling_team_id,
-                bowling_team_id: currentInnings.batting_team_id
-            }]).select().single();
+        try {
+            if (currentInnings.innings_number === 1) {
+                setFirstInningsRuns(currentInnings.runs || 0);
+                
+                // 1. Mark current innings as completed
+                const { error: updateErr } = await supabase
+                    .from('innings')
+                    .update({ is_completed: true })
+                    .eq('id', currentInnings.id);
 
-            if (error) alert('Error starting 2nd innings');
-            else {
-                setCurrentInnings(inn2);
-                alert('1st Innings Completed! Starting 2nd Innings...');
+                if (updateErr) {
+                    console.error('FINISH_INN1_ERROR:', updateErr);
+                    alert(`Database Error finishing innings: ${updateErr.message}`);
+                    return;
+                }
+
+                // 2. Insert 2nd innings
+                const { data: inn2, error: insertErr } = await supabase.from('innings').insert([{
+                    match_id: activeMatch.id,
+                    innings_number: 2,
+                    batting_team_id: currentInnings.bowling_team_id,
+                    bowling_team_id: currentInnings.batting_team_id,
+                    runs: 0,
+                    wickets: 0,
+                    overs: 0.0
+                }]).select().single();
+
+                if (insertErr) {
+                    console.error('START_INN2_ERROR:', insertErr);
+                    alert(`Database Error starting 2nd innings: ${insertErr.message}`);
+                } else {
+                    setCurrentInnings(inn2);
+                    alert('1st Innings Completed! Starting 2nd Innings...');
+                }
+            } else {
+                // ... logic for match completion
+                const { data: inn1, error: e1 } = await supabase.from('innings').select('runs').eq('match_id', activeMatch.id).eq('innings_number', 1).single();
+                const { data: inn2, error: e2 } = await supabase.from('innings').select('runs').eq('match_id', activeMatch.id).eq('innings_number', 2).single();
+
+                if (e1 || e2) {
+                    alert("Error fetching innings data to calculate winner.");
+                    return;
+                }
+
+                let matchWinnerId = null;
+                let resultMessage = 'Match Completed!';
+
+                if (inn1 && inn2) {
+                    if (inn2.runs > inn1.runs) {
+                        matchWinnerId = currentInnings.batting_team_id;
+                        resultMessage = `🏆 ${getTeamName(matchWinnerId)} won by ${10 - (currentInnings.wickets || 0)} wickets!`;
+                    } else if (inn1.runs > inn2.runs) {
+                        matchWinnerId = currentInnings.bowling_team_id;
+                        resultMessage = `🏆 ${getTeamName(matchWinnerId)} won by ${inn1.runs - inn2.runs} runs!`;
+                    } else {
+                        resultMessage = "🤝 Match Tied!";
+                    }
+                }
+
+                // Update Match Status
+                const { error: matchErr } = await supabase.from('matches').update({
+                    status: 'completed',
+                    winner_team_id: matchWinnerId
+                }).eq('id', activeMatch.id);
+
+                if (matchErr) {
+                    alert(`Error finalizing match: ${matchErr.message}`);
+                    return;
+                }
+
+                // Mark 2nd innings as completed
+                await supabase.from('innings').update({ is_completed: true }).eq('id', currentInnings.id);
+
+                alert(resultMessage);
+                await fetchMatches();
+                setView('matches');
             }
-        } else {
-            const { data: winnerId } = await supabase.from('innings')
-                .select('batting_team_id, runs')
-                .eq('match_id', activeMatch.id)
-                .order('innings_number', { ascending: false });
-
-            // Calculate winner (simple logic)
-            // In a real app we'd compare inn1 and inn2
-            const { data: inn1 } = await supabase.from('innings').select('runs').eq('match_id', activeMatch.id).eq('innings_number', 1).single();
-            const { data: inn2 } = await supabase.from('innings').select('runs').eq('match_id', activeMatch.id).eq('innings_number', 2).single();
-
-            let matchWinnerId = null;
-            if (inn1 && inn2) {
-                if (inn1.runs > inn2.runs) matchWinnerId = activeMatch.batting_first_id;
-                else if (inn2.runs > inn1.runs) matchWinnerId = activeMatch.batting_first_id === activeMatch.team_a_id ? activeMatch.team_b_id : activeMatch.team_a_id;
-            }
-
-            await supabase.from('matches').update({
-                status: 'completed',
-                winner_team_id: matchWinnerId
-            }).eq('id', activeMatch.id);
-
-            alert('Match Completed!');
-            await fetchMatches();
-            setView('matches');
+        } catch (err: any) {
+            console.error('END_INNINGS_CRITICAL_ERROR:', err);
+            alert(`A critical error occurred: ${err.message}`);
         }
     };
 
@@ -477,18 +634,25 @@ function AdminLiveScoreContent() {
                             <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)' }}>BEST BATSMAN</div>
                             <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{tournamentStats[0]?.first_name || '---'} ({tournamentStats[0]?.total_runs || 0} Runs)</div>
                         </div>
-                        <div className="glass" style={{ padding: '20px', borderRadius: '20px', textAlign: 'center' }}>
+                        <div className="glass" style={{ padding: '20px', borderRadius: '20px', textAlign: 'center', border: '1px solid rgba(0, 255, 128, 0.2)' }}>
                             <Target size={24} color="#00ff80" style={{ marginBottom: '10px' }} />
-                            <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)' }}>BEST BOWLER</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>
-                                {tournamentStats.sort((a, b) => b.total_wickets - a.total_wickets)[0]?.first_name || '---'}
-                                ({tournamentStats.sort((a, b) => b.total_wickets - a.total_wickets)[0]?.total_wickets || 0} Wickets)
+                            <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>BEST BOWLER</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#00ff80' }}>
+                                {(() => {
+                                    const best = [...tournamentStats].sort((a, b) => b.total_wickets - a.total_wickets)[0];
+                                    return best ? `${best.first_name} (${best.total_wickets} Wkts)` : '---';
+                                })()}
                             </div>
                         </div>
-                        <div className="glass" style={{ padding: '20px', borderRadius: '20px', textAlign: 'center' }}>
+                        <div className="glass" style={{ padding: '20px', borderRadius: '20px', textAlign: 'center', border: '1px solid var(--primary)' }}>
                             <Zap size={24} color="#ffd700" style={{ marginBottom: '10px' }} />
-                            <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)' }}>PLAYER OF TOURNAMENT</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{tournamentStats.sort((a, b) => b.pot_score - a.pot_score)[0]?.first_name || '---'}</div>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>PLAYER OF TOURNAMENT</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--primary)' }}>
+                                {(() => {
+                                    const best = [...tournamentStats].sort((a, b) => b.pot_score - a.pot_score)[0];
+                                    return best ? `${best.first_name}` : '---';
+                                })()}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -518,7 +682,7 @@ function AdminLiveScoreContent() {
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '20px', margin: '25px 0' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '20px', margin: '20px 0' }}>
                                             <div style={{ textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{m.team_a?.name || 'TBD'}</div>
                                             </div>
@@ -528,9 +692,18 @@ function AdminLiveScoreContent() {
                                             </div>
                                         </div>
 
+                                        {m.status === 'completed' && (
+                                            <div style={{ marginBottom: '20px', padding: '10px', background: 'rgba(0, 255, 128, 0.05)', borderRadius: '12px', border: '1px solid rgba(0, 255, 128, 0.2)', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '0.65rem', color: '#00ff80', fontWeight: 900, textTransform: 'uppercase', marginBottom: '4px' }}>Match Result</div>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#fff' }}>
+                                                    {m.winner_team_id ? `${getTeamName(m.winner_team_id)} WON THE MATCH` : 'MATCH TIED'}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button onClick={() => { setActiveMatch(m); setView('scoring'); }} className="btn-primary" style={{ flex: 1, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                <Activity size={16} /> {m.status === 'live' ? 'CONTINUE' : 'VIEW'}
+                                            <button onClick={() => handleContinueMatch(m)} className="btn-primary" style={{ flex: 1, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                <Activity size={16} /> {m.status === 'live' ? 'CONTINUE' : 'CONTINUE'}
                                             </button>
                                             <button onClick={() => downloadReport(m)} className="btn-secondary" style={{ flex: 1, fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid var(--primary)', color: 'var(--primary)' }}>
                                                 <Download size={16} /> REPORT
@@ -607,6 +780,17 @@ function AdminLiveScoreContent() {
                                         </select>
                                     </div>
                                 </div>
+                                <div style={{ marginBottom: '25px' }}>
+                                    <label style={labelStyle}>OVERS PER INNINGS</label>
+                                    <select style={inputStyle} value={formData.max_overs} onChange={e => setFormData({ ...formData, max_overs: e.target.value })}>
+                                        <option value="5">5 Overs</option>
+                                        <option value="8">8 Overs</option>
+                                        <option value="10">10 Overs</option>
+                                        <option value="12">12 Overs</option>
+                                        <option value="15">15 Overs</option>
+                                        <option value="20">20 Overs</option>
+                                    </select>
+                                </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '25px' }}>
                                     <div>
                                         <label style={labelStyle}>TEAM A</label>
@@ -636,7 +820,7 @@ function AdminLiveScoreContent() {
                                 {/* TEAM A Squad Selector */}
                                 <div className="glass" style={{ padding: '30px', borderRadius: '25px' }}>
                                     <h3 style={{ marginBottom: '20px', fontWeight: 900, textTransform: 'uppercase' }}>
-                                        {teams.find(t => t.id === activeMatch.team_a_id)?.name || 'Team A'} ROSTER ({selectedSquadA.length})
+                                        {getTeamName(activeMatch?.team_a_id)} ROSTER ({selectedSquadA.length})
                                     </h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '500px', overflowY: 'auto', paddingRight: '10px' }}>
                                         {teamAPlayers.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>No players found for this team.</div>}
@@ -666,7 +850,7 @@ function AdminLiveScoreContent() {
                                 {/* TEAM B Squad Selector */}
                                 <div className="glass" style={{ padding: '30px', borderRadius: '25px' }}>
                                     <h3 style={{ marginBottom: '20px', fontWeight: 900, textTransform: 'uppercase' }}>
-                                        {teams.find(t => t.id === activeMatch.team_b_id)?.name || 'Team B'} ROSTER ({selectedSquadB.length})
+                                        {getTeamName(activeMatch?.team_b_id)} ROSTER ({selectedSquadB.length})
                                     </h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '500px', overflowY: 'auto', paddingRight: '10px' }}>
                                         {teamBPlayers.length === 0 && <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>No players found for this team.</div>}
@@ -712,41 +896,48 @@ function AdminLiveScoreContent() {
                                         <button
                                             onClick={() => setTossData({ ...tossData, toss_winner_id: activeMatch.team_a_id })}
                                             className={tossData.toss_winner_id === activeMatch.team_a_id ? 'btn-primary' : 'btn-secondary'}
-                                            style={{ padding: '20px' }}
+                                            style={{ padding: '20px', fontSize: '1.2rem', fontWeight: 900 }}
                                         >
-                                            {activeMatch.team_a?.name || 'TEAM A'}
+                                            {getTeamName(activeMatch.team_a_id)}
                                         </button>
                                         <button
                                             onClick={() => setTossData({ ...tossData, toss_winner_id: activeMatch.team_b_id })}
                                             className={tossData.toss_winner_id === activeMatch.team_b_id ? 'btn-primary' : 'btn-secondary'}
-                                            style={{ padding: '20px' }}
+                                            style={{ padding: '20px', fontSize: '1.2rem', fontWeight: 900 }}
                                         >
-                                            {activeMatch.team_b?.name || 'TEAM B'}
+                                            {getTeamName(activeMatch.team_b_id)}
                                         </button>
                                     </div>
                                 </div>
 
-                                <div style={{ marginBottom: '40px' }}>
-                                    <label style={labelStyle}>TOSS DECISION</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                        <button
-                                            onClick={() => setTossData({ ...tossData, toss_decision: 'Batting' })}
-                                            className={tossData.toss_decision === 'Batting' ? 'btn-primary' : 'btn-secondary'}
-                                            style={{ padding: '20px' }}
-                                        >
-                                            CHOSE BATTING
-                                        </button>
-                                        <button
-                                            onClick={() => setTossData({ ...tossData, toss_decision: 'Bowling' })}
-                                            className={tossData.toss_decision === 'Bowling' ? 'btn-primary' : 'btn-secondary'}
-                                            style={{ padding: '20px' }}
-                                        >
-                                            CHOSE BOWLING
-                                        </button>
-                                    </div>
-                                </div>
+                                {tossData.toss_winner_id && (
+                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '40px' }}>
+                                        <label style={labelStyle}>{getTeamName(tossData.toss_winner_id)} CHOSE TO:</label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                            <button
+                                                onClick={() => setTossData({ ...tossData, toss_decision: 'Batting' })}
+                                                className={tossData.toss_decision === 'Batting' ? 'btn-primary' : 'btn-secondary'}
+                                                style={{ padding: '20px', fontSize: '1.2rem', fontWeight: 900 }}
+                                            >
+                                                BAT
+                                            </button>
+                                            <button
+                                                onClick={() => setTossData({ ...tossData, toss_decision: 'Bowling' })}
+                                                className={tossData.toss_decision === 'Bowling' ? 'btn-primary' : 'btn-secondary'}
+                                                style={{ padding: '20px', fontSize: '1.2rem', fontWeight: 900 }}
+                                            >
+                                                BOWL
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
 
-                                <button onClick={handleSaveToss} className="btn-primary" style={{ width: '100%', padding: '20px', fontSize: '1.2rem', fontWeight: 950, boxShadow: '0 0 30px var(--primary-glow)' }}>
+                                <button 
+                                    disabled={!tossData.toss_winner_id || !tossData.toss_decision}
+                                    onClick={handleSaveToss} 
+                                    className="btn-primary" 
+                                    style={{ width: '100%', padding: '20px', fontSize: '1.2rem', fontWeight: 950, boxShadow: tossData.toss_decision ? '0 0 30px var(--primary-glow)' : 'none', opacity: (tossData.toss_winner_id && tossData.toss_decision) ? 1 : 0.5 }}
+                                >
                                     START LIVE SCORING
                                 </button>
                             </div>
@@ -755,43 +946,91 @@ function AdminLiveScoreContent() {
 
                     {view === 'scoring' && currentInnings && (
                         <motion.div key="scoring" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            <div className="glass shadow-premium" style={{ padding: '40px', borderRadius: '35px' }}>
-                                {/* Score Indicator */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '50px' }}>
+                            {/* Team Switcher */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', maxWidth: '800px', margin: '0 auto 20px auto' }}>
+                                <button
+                                    onClick={() => setScoringTab('team_a')}
+                                    className={scoringTab === 'team_a' ? 'btn-primary' : 'btn-secondary'}
+                                    style={{ padding: '15px 5px', fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase' }}
+                                >
+                                    {getTeamName(activeMatch?.team_a_id)}
+                                </button>
+                                <button
+                                    onClick={() => setScoringTab('team_b')}
+                                    className={scoringTab === 'team_b' ? 'btn-primary' : 'btn-secondary'}
+                                    style={{ padding: '15px 5px', fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase' }}
+                                >
+                                    {getTeamName(activeMatch?.team_b_id)}
+                                </button>
+                                <button
+                                    onClick={() => setScoringTab('live')}
+                                    disabled={activeMatch.status === 'completed'}
+                                    className={scoringTab === 'live' ? 'btn-primary' : 'btn-secondary'}
+                                    style={{ padding: '15px 5px', fontSize: '0.75rem', fontWeight: 900, opacity: activeMatch.status === 'completed' ? 0.3 : 1 }}
+                                >
+                                    LIVE SCORING
+                                </button>
+                            </div>
+
+                            {scoringTab === 'live' && (
+                                <div className="glass shadow-premium" style={{ padding: '30px', borderRadius: '35px', maxWidth: '800px', margin: '0 auto' }}>
+                                    {/* Score Indicator */}
+                                <div className="mobile-score-container" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '30px', background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '25px' }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 800 }}>BATTING - {currentInnings.batting_team_id === activeMatch.team_a_id ? activeMatch.team_a.name : activeMatch.team_b.name}</div>
-                                        <div style={{ fontSize: '4rem', fontWeight: 950 }}>{currentInnings.runs} - {currentInnings.wickets}</div>
-                                        <div style={{ fontSize: '1.2rem', color: 'var(--primary)', fontWeight: 900 }}>OVERS: {currentInnings.overs.toFixed(1)}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>{getTeamName(currentInnings?.batting_team_id)}</div>
+                                        <div className="score-text" style={{ fontSize: 'clamp(2.5rem, 8vw, 4.5rem)', fontWeight: 950, lineHeight: 1 }}>
+                                            {currentInnings?.runs || 0} - {currentInnings?.wickets || 0}
+                                        </div>
                                     </div>
-                                    <div style={{ width: '2px', height: '100px', background: 'var(--border)' }} />
+                                    <div style={{ width: '2px', height: '60px', background: 'var(--border)', margin: '0 15px' }} />
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 800 }}>INNINGS</div>
-                                        <div style={{ fontSize: '3rem', fontWeight: 950 }}>{currentInnings.innings_number}</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800 }}>OVERS</div>
+                                        <div style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', fontWeight: 950 }}>
+                                            {(currentInnings?.overs || 0).toFixed(1)} <span style={{ fontSize: 'min(1rem, 3vw)', color: 'var(--text-muted)' }}>/ {activeMatch?.max_overs || 8}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Controls */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '25px', marginBottom: '40px' }}>
+                                {currentInnings.innings_number === 2 && firstInningsRuns !== null && (
+                                    <div style={{ textAlign: 'center', marginBottom: '20px', padding: '15px', background: 'rgba(0,255,128,0.1)', borderRadius: '25px', border: '1px solid rgba(0,255,128,0.2)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.7rem', color: 'rgba(0,255,128,0.7)', fontWeight: 900, textTransform: 'uppercase' }}>Runs Required</div>
+                                                <div style={{ color: '#00ff80', fontWeight: 950, fontSize: '2rem' }}>
+                                                    {Math.max(0, (firstInningsRuns + 1) - (currentInnings.runs || 0))}
+                                                </div>
+                                            </div>
+                                            <div style={{ borderLeft: '1px solid rgba(0,255,128,0.2)' }}>
+                                                <div style={{ fontSize: '0.7rem', color: 'rgba(0,255,128,0.7)', fontWeight: 900, textTransform: 'uppercase' }}>Balls Remaining</div>
+                                                <div style={{ color: '#00ff80', fontWeight: 950, fontSize: '2rem' }}>
+                                                    {(() => {
+                                                        const totalBalls = (activeMatch?.max_overs || 8) * 6;
+                                                        const currentOvers = currentInnings.overs || 0;
+                                                        const ballsBowled = Math.floor(currentOvers) * 6 + Math.round((currentOvers - Math.floor(currentOvers)) * 10);
+                                                        return Math.max(0, totalBalls - ballsBowled);
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: '10px', fontSize: '0.85rem', fontWeight: 800, color: '#00ff80' }}>
+                                            TARGET: {firstInningsRuns + 1}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Striker & Bowler Selection */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
                                     <div>
                                         <label style={labelStyle}>STRIKER</label>
                                         <select style={inputStyle} value={strikerId} onChange={e => setStrikerId(e.target.value)}>
-                                            <option value="">Select Batsman</option>
+                                            <option value="">Select Striker</option>
                                             {(currentInnings.batting_team_id === activeMatch.team_a_id ? matchPlayersA : matchPlayersB).map(p => (
                                                 <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div>
-                                        <label style={labelStyle}>NON-STRIKER</label>
-                                        <select style={inputStyle} value={nonStrikerId} onChange={e => setNonStrikerId(e.target.value)}>
-                                            <option value="">Select Batsman</option>
-                                            {(currentInnings.batting_team_id === activeMatch.team_a_id ? matchPlayersA : matchPlayersB).map(p => (
-                                                <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style={labelStyle}>BOWLER</label>
+                                        <label style={labelStyle}>CURRENT BOWLER</label>
                                         <select style={inputStyle} value={bowlerId} onChange={e => setBowlerId(e.target.value)}>
                                             <option value="">Select Bowler</option>
                                             {(currentInnings.bowling_team_id === activeMatch.team_a_id ? matchPlayersA : matchPlayersB).map(p => (
@@ -801,75 +1040,118 @@ function AdminLiveScoreContent() {
                                     </div>
                                 </div>
 
-                                {/* Scoring Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '30px' }}>
-                                    {[0, 1, 2, 3, 4, 6].map(runs => (
-                                        <button key={runs} onClick={() => recordBall(runs)} className="btn-secondary" style={{ padding: '20px', fontSize: '1.8rem', fontWeight: 950, borderRadius: '20px' }}>
+                                {/* Run Buttons */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '20px' }}>
+                                    {[0, 4, 6].map(runs => (
+                                        <button 
+                                            key={runs} 
+                                            onClick={() => recordBall(runs)} 
+                                            className="btn-secondary" 
+                                            style={{ padding: '30px 0', fontSize: '2.5rem', fontWeight: 950, borderRadius: '25px', background: runs === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,215,0,0.1)', borderColor: runs === 0 ? 'var(--border)' : 'var(--primary)' }}
+                                        >
                                             {runs}
                                         </button>
                                     ))}
-                                    <button onClick={() => recordBall(0, true)} className="btn-secondary" style={{ gridColumn: 'span 2', padding: '20px', fontSize: '1.2rem', fontWeight: 950, borderRadius: '20px', color: '#ff4b4b', borderColor: '#ff4b4b' }}>
-                                        WICKET
+                                </div>
+
+                                {/* Extras & Actions */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                                    <button onClick={() => recordBall(0, false, 'wide')} className="btn-secondary" style={{ padding: '20px', fontSize: '1.1rem', fontWeight: 900, borderRadius: '20px', color: '#ffd700', borderColor: '#ffd700' }}>WIDE</button>
+                                    <button onClick={() => recordBall(0, false, 'nb')} className="btn-secondary" style={{ padding: '20px', fontSize: '1.1rem', fontWeight: 900, borderRadius: '20px', color: '#ffd700', borderColor: '#ffd700' }}>NO BALL</button>
+                                </div>
+
+                                <button 
+                                    onClick={() => recordBall(0, true)} 
+                                    className="btn-secondary" 
+                                    style={{ width: '100%', padding: '25px', fontSize: '1.5rem', fontWeight: 950, borderRadius: '25px', color: '#ff4b4b', borderColor: '#ff4b4b', marginBottom: '20px', background: 'rgba(255, 75, 75, 0.1)' }}
+                                >
+                                    WICKET
+                                </button>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                                    <button 
+                                        onClick={handleUndo} 
+                                        className="btn-secondary" 
+                                        style={{ padding: '15px', fontSize: '0.8rem', fontWeight: 900, borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                                    >
+                                        <RefreshCw size={14} /> UNDO
+                                    </button>
+                                    <button 
+                                        onClick={endInnings} 
+                                        className="btn-secondary" 
+                                        style={{ padding: '15px', fontSize: '0.8rem', fontWeight: 900, borderRadius: '15px', borderColor: '#ff4b4b', color: '#ff4b4b' }}
+                                    >
+                                        END INNINGS
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            const overs = currentInnings.overs || 0;
+                                            const balls = Math.round((overs - Math.floor(overs)) * 10);
+                                            if (balls !== 0) {
+                                                if (confirm('Over is not complete. Manual End Over?')) {
+                                                    const nextOver = Math.ceil(overs);
+                                                    supabase.from('innings').update({ overs: nextOver }).eq('id', currentInnings.id).then(() => {
+                                                        alert('New over! Please select next bowler.');
+                                                        setBowlerId('');
+                                                        init();
+                                                    });
+                                                }
+                                            } else {
+                                                alert('Over completed! Please select next bowler.');
+                                                setBowlerId('');
+                                            }
+                                        }} 
+                                        className="btn-secondary" 
+                                        style={{ padding: '15px', fontSize: '0.8rem', fontWeight: 900, borderRadius: '15px', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                                    >
+                                        END OVER
                                     </button>
                                 </div>
-
-                                {/* Extras Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '40px' }}>
-                                    <button onClick={() => recordBall(0, false, 'wide')} className="btn-secondary" style={{ padding: '15px', fontSize: '0.9rem', fontWeight: 800, borderRadius: '15px' }}>WIDE</button>
-                                    <button onClick={() => recordBall(0, false, 'nb')} className="btn-secondary" style={{ padding: '15px', fontSize: '0.9rem', fontWeight: 800, borderRadius: '15px' }}>NO BALL</button>
-                                    <button onClick={() => {
-                                        const r = parseInt(prompt("How many leg-byes?") || "0");
-                                        recordBall(r, false, 'lb');
-                                    }} className="btn-secondary" style={{ padding: '15px', fontSize: '0.9rem', fontWeight: 800, borderRadius: '15px' }}>LEG BYE</button>
-                                    <button onClick={() => {
-                                        const r = parseInt(prompt("How many byes?") || "0");
-                                        recordBall(r, false, 'bye');
-                                    }} className="btn-secondary" style={{ padding: '15px', fontSize: '0.9rem', fontWeight: 800, borderRadius: '15px' }}>BYE</button>
-                                </div>
-
-                                <button onClick={endInnings} className="btn-secondary" style={{ width: '100%', padding: '15px', color: 'var(--primary)', borderColor: 'var(--primary)', fontWeight: 900 }}>
-                                    END INNINGS / MATCH
-                                </button>
-                            </div>
-
-                            {/* Wicket Modal */}
-                            {showWicketModal && (
-                                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
-                                    <div className="glass" style={{ width: '100%', maxWidth: '500px', padding: '40px', borderRadius: '30px' }}>
-                                        <h2 style={{ marginBottom: '30px', fontWeight: 950 }}>WICKET DETAILS</h2>
-                                        <div style={{ marginBottom: '20px' }}>
-                                            <label style={labelStyle}>DISMISSED BATSMAN</label>
-                                            <select style={inputStyle} value={dismissedId} onChange={e => setDismissedId(e.target.value)}>
-                                                <option value={strikerId}>Striker ({matchPlayersA.find(p => p.id === strikerId)?.first_name || matchPlayersB.find(p => p.id === strikerId)?.first_name})</option>
-                                                <option value={nonStrikerId}>Non-Striker ({matchPlayersA.find(p => p.id === nonStrikerId)?.first_name || matchPlayersB.find(p => p.id === nonStrikerId)?.first_name})</option>
-                                            </select>
-                                        </div>
-                                        <div style={{ marginBottom: '20px' }}>
-                                            <label style={labelStyle}>WICKET TAKER (BOWLER)</label>
-                                            <select style={inputStyle} value={wicketTakerId} onChange={e => setWicketTakerId(e.target.value)}>
-                                                {(currentInnings.bowling_team_id === activeMatch.team_a_id ? matchPlayersA : matchPlayersB).map(p => (
-                                                    <option key={p.id} value={p.id}>{p.first_name} {p.last_name} (Bowler)</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div style={{ marginBottom: '30px' }}>
-                                            <label style={labelStyle}>WICKET TYPE</label>
-                                            <select style={inputStyle} value={selectedWicketType} onChange={e => setSelectedWicketType(e.target.value)}>
-                                                <option>Bowled</option>
-                                                <option>Caught</option>
-                                                <option>LBW</option>
-                                                <option>Run Out</option>
-                                                <option>Stumped</option>
-                                            </select>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '15px' }}>
-                                            <button onClick={() => setShowWicketModal(false)} className="btn-secondary" style={{ flex: 1 }}>CANCEL</button>
-                                            <button onClick={() => recordBall(0, true)} className="btn-primary" style={{ flex: 2 }}>CONFIRM WICKET</button>
-                                        </div>
-                                    </div>
                                 </div>
                             )}
+
+                            {(scoringTab === 'team_a' || scoringTab === 'team_b') && activeMatch && (
+                                <MatchScorecard 
+                                    teamId={scoringTab === 'team_a' ? activeMatch.team_a_id : activeMatch.team_b_id}
+                                    teamName={getTeamName(scoringTab === 'team_a' ? activeMatch.team_a_id : activeMatch.team_b_id)}
+                                    events={matchEvents}
+                                    match={activeMatch}
+                                />
+                            )}
                         </motion.div>
+                    )}
+
+                    {/* Wicket Modal */}
+                    {showWicketModal && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
+                            <div className="glass" style={{ width: '100%', maxWidth: '500px', padding: '40px', borderRadius: '30px' }}>
+                                <h2 style={{ marginBottom: '30px', fontWeight: 950 }}>WICKET DETAILS</h2>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={labelStyle}>DISMISSED BATSMAN</label>
+                                    <div style={inputStyle}>
+                                        {getTeamName(currentInnings.batting_team_id === activeMatch.team_a_id ? activeMatch.team_a_id : activeMatch.team_b_id)}: { 
+                                            (matchPlayersA.find(p => p.id === strikerId) || matchPlayersB.find(p => p.id === strikerId))?.first_name 
+                                        } { 
+                                            (matchPlayersA.find(p => p.id === strikerId) || matchPlayersB.find(p => p.id === strikerId))?.last_name 
+                                        } (Striker)
+                                    </div>
+                                </div>
+                                <div style={{ marginBottom: '30px' }}>
+                                    <label style={labelStyle}>WICKET TYPE</label>
+                                    <select style={inputStyle} value={selectedWicketType} onChange={(e: any) => setSelectedWicketType(e.target.value)}>
+                                        <option>Bowled</option>
+                                        <option>Caught</option>
+                                        <option>LBW</option>
+                                        <option>Run Out</option>
+                                        <option>Stumped</option>
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', gap: '15px' }}>
+                                    <button onClick={() => setShowWicketModal(false)} className="btn-secondary" style={{ flex: 1 }}>CANCEL</button>
+                                    <button onClick={() => recordBall(0, true)} className="btn-primary" style={{ flex: 2 }}>CONFIRM WICKET</button>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </AnimatePresence>
             </div>
@@ -882,6 +1164,12 @@ function AdminLiveScoreContent() {
                 .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border: 1px solid var(--border); }
                 .rotate { animation: rotate 2s linear infinite; }
                 @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                
+                @media (max-width: 600px) {
+                    .mobile-score-container { padding: 15px !important; }
+                    .score-text { font-size: 3rem !important; }
+                    .btn-secondary { padding: 15px !important; font-size: 1.5rem !important; }
+                }
             `}</style>
         </main>
     );
