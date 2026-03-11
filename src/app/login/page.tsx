@@ -29,13 +29,13 @@ export default function CaptainLoginPage() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    // Auto-fill email and password when team is selected
+    // Auto-fill email when team is selected
     useEffect(() => {
         if (selectedTeam) {
             const team = TEAMS.find(t => t.name === selectedTeam);
             if (team) {
                 setCaptainEmail(team.email);
-                setPassword(CAPTAIN_PASSWORD);
+                setPassword(''); // Ensure password is empty when team changes
             }
         }
     }, [selectedTeam]);
@@ -46,7 +46,7 @@ export default function CaptainLoginPage() {
         setError('');
 
         const loginEmail = captainEmail.trim();
-        const loginPassword = password || CAPTAIN_PASSWORD;
+        const loginPassword = password.trim();
 
         try {
             // 1. Try to sign in via standard client first
