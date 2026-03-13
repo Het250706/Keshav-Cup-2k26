@@ -88,7 +88,7 @@ export default function AuctionHistoryTable() {
                                 }}
                             >
                                 <div style={{ width: '50px', height: '50px', borderRadius: '12px', overflow: 'hidden', background: '#111', border: '1px solid var(--border)' }}>
-                                    <img src={fixPhotoUrl(p.photo_url) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                    <img src={fixPhotoUrl(p.photo_url, p.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`; }} />
                                 </div>
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontWeight: 800, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.first_name} {p.last_name}</div>

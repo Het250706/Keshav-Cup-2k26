@@ -1,9 +1,16 @@
-export function fixPhotoUrl(url: string | null | undefined): string {
-    if (!url) return '';
+export function fixPhotoUrl(url: string | null | undefined, name: string = 'player'): string {
+    if (!url || url.trim() === '') {
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`;
+    }
 
     const lowerUrl = url.toLowerCase();
 
-    // 1. Handle Google Drive URLs
+    // 1. Handle Supabase Storage URLs (return as is)
+    if (lowerUrl.includes('.supabase.co')) {
+        return url;
+    }
+
+    // 2. Handle Google Drive URLs
     if (lowerUrl.includes('drive.google.com') ||
         lowerUrl.includes('docs.google.com/uc') ||
         lowerUrl.includes('lh3.googleusercontent.com') ||
@@ -29,6 +36,6 @@ export function fixPhotoUrl(url: string | null | undefined): string {
         }
     }
 
-    // 2. Fallback for mixed protocols or direct images
+    // 3. Fallback for mixed protocols or direct images
     return url;
 }

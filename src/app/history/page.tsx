@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import { ScrollText, Clock, TrendingUp } from 'lucide-react';
+import { fixPhotoUrl } from '@/lib/utils';
 
 export default function GlobalHistoryPage() {
     const [bids, setBids] = useState<any[]>([]);
@@ -108,9 +109,10 @@ export default function GlobalHistoryPage() {
                                         }}>
                                             <div style={{ width: '60px', height: '60px', borderRadius: '12px', overflow: 'hidden', background: '#111', flexShrink: 0 }}>
                                                 <img
-                                                    src={p.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`}
+                                                    src={fixPhotoUrl(p.photo_url, p.first_name)}
                                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     alt=""
+                                                    onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`; }}
                                                 />
                                             </div>
                                             <div style={{ flex: 1 }}>

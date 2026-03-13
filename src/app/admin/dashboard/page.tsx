@@ -196,6 +196,26 @@ function AdminDashboardContent() {
         }
     };
 
+    const migratePhotos = async () => {
+        if (!confirm('Migrate all Google Drive photos to Supabase Storage? This will make image loading much faster and more stable.')) return;
+
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/admin/migrate-bulk-photos', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ Migration Complete!\n\nMigrated: ${data.migrated} photos\nSkipped: ${data.skipped} (already migrated or empty)`);
+                fetchData();
+            } else {
+                throw new Error(data.error || 'Migration failed');
+            }
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     const currentPlayer = players.find(p => p.id === auctionState?.current_player_id);
 
     if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: '#fff' }}>LOADING CONSOLE...</div>;
@@ -354,7 +374,7 @@ function AdminDashboardContent() {
                                                         style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#222', overflow: 'hidden', cursor: 'zoom-in' }}
                                                     >
                                                         <img
-                                                            src={fixPhotoUrl(p.photo_url)}
+                                                            src={fixPhotoUrl(p.photo_url, p.first_name)}
                                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                             alt=""
                                                             referrerPolicy="no-referrer"
@@ -411,7 +431,7 @@ function AdminDashboardContent() {
                                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                                                 <div style={{ width: '80px', height: '80px', borderRadius: '20px', overflow: 'hidden', border: '2px solid var(--primary)', background: '#111' }}>
                                                     <img
-                                                        src={fixPhotoUrl(currentPlayer?.photo_url)}
+                                                        src={fixPhotoUrl(currentPlayer?.photo_url, currentPlayer?.first_name)}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                         alt=""
                                                         onError={(e) => {
@@ -481,6 +501,25 @@ function AdminDashboardContent() {
                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Advanced synchronization tools for correcting data inconsistencies.</p>
                                 </div>
                                 <div style={{ display: 'flex', gap: '15px' }}>
+                                    <button
+                                        onClick={migratePhotos}
+                                        disabled={syncing}
+                                        style={{
+                                            background: 'rgba(56, 189, 248, 0.1)',
+                                            color: '#38bdf8',
+                                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                                            padding: '10px 20px',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 900,
+                                            cursor: syncing ? 'not-allowed' : 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <Download size={14} /> {syncing ? 'PROCESSING...' : 'STABILIZE PHOTOS'}
+                                    </button>
                                     <button
                                         onClick={auditBudgets}
                                         style={{

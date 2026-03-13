@@ -41,7 +41,7 @@ export async function GET() {
         }
 
         const rows = json.table.rows;
-        const players = rows.slice(1).map((row: any, index: number) => {
+        const players = rows.map((row: any, index: number) => {
             const c = row.c;
             const getValue = (i: number) => {
                 if (!c || !c[i]) return '';

@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Phone, Calendar, Search, Zap, Trophy, ShieldCheck, ArrowRight, Save, Clock } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Search, Zap, Trophy, ShieldCheck, ArrowRight, Save, Clock, Camera, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function RegistrationForm() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -36,6 +39,38 @@ export default function RegistrationForm() {
         if (cat === 'Gold') return 50000000;
         if (cat === 'Silver') return 30000000;
         return 20000000;
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        setError(null);
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError, data } = await supabase.storage
+                .from('player-photos')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('player-photos')
+                .getPublicUrl(filePath);
+
+            setFormData({ ...formData, photo_url: publicUrl });
+            setPreviewUrl(publicUrl);
+        } catch (err: any) {
+            console.error('Upload error:', err);
+            setError('Photo upload failed: ' + (err.message || 'Unknown error'));
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -213,6 +248,58 @@ export default function RegistrationForm() {
                         value={formData.experience}
                         onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
                     />
+                </div>
+            </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 3' }}>
+                <label style={labelStyle}><Camera size={14} /> PLAYER PHOTO (REQUIRED)</label>
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <div style={{
+                        width: '120px',
+                        height: '140px',
+                        borderRadius: '20px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '2px dashed rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        position: 'relative'
+                    }}>
+                        {previewUrl ? (
+                            <img src={previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Preview" />
+                        ) : uploading ? (
+                            <Loader2 size={30} className="animate-spin text-yellow-500" />
+                        ) : (
+                            <Camera size={30} style={{ opacity: 0.2 }} />
+                        )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            id="photo-upload"
+                            style={{ display: 'none' }}
+                        />
+                        <label htmlFor="photo-upload" style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px 24px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                        }}>
+                            {uploading ? 'UPLOADING...' : previewUrl ? 'CHANGE PHOTO' : 'SELECT PHOTO'}
+                        </label>
+                        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '10px', fontWeight: 600 }}>
+                            JPG or PNG recommended. Max size 2MB.
+                        </p>
+                    </div>
                 </div>
             </div>
 

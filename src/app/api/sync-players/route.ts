@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { migrateDriveImageToSupabase } from '@/lib/drive-to-supabase';
 
 export async function POST() {
     const SHEET_ID = process.env.GOOGLE_SHEET_ID;
@@ -16,15 +17,23 @@ export async function POST() {
         const data = await response.json();
 
         if (data.values) {
-            const players = data.values.map((row: any) => ({
-                name: row[0],
-                age: parseInt(row[1]),
-                role: row[2],
-                base_price: parseFloat(row[3]),
-                city: row[4],
-                phone: row[5],
-                photo_url: row[6],
-                category: row[7] || 'Silver'
+            const players = await Promise.all(data.values.map(async (row: any) => {
+                const name = row[0];
+                const originalPhotoUrl = row[6];
+                
+                // Migrate to Supabase
+                const finalPhotoUrl = await migrateDriveImageToSupabase(originalPhotoUrl, name || 'unknown');
+
+                return {
+                    name: name,
+                    age: parseInt(row[1]),
+                    role: row[2],
+                    base_price: parseFloat(row[3]),
+                    city: row[4],
+                    phone: row[5],
+                    photo_url: finalPhotoUrl,
+                    category: row[7] || 'Silver'
+                };
             }));
 
             // Bulk upsert into Supabase

@@ -1,6 +1,6 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { migrateDriveImageToSupabase } from '@/lib/drive-to-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,10 @@ export async function POST(req: Request) {
         if (!player) {
             return NextResponse.json({ error: 'No player data provided' }, { status: 400 });
         }
+
+        // Migrate image if it's from Google Drive
+        const migratingName = `${player.first_name}_${player.last_name}`;
+        const finalPhotoUrl = await migrateDriveImageToSupabase(player.photo_url || '', migratingName);
 
         // Use SERVICE ROLE KEY to bypass RLS and ensure the push works
         const supabaseAdmin = createClient(
@@ -27,7 +31,7 @@ export async function POST(req: Request) {
                 last_name: player.last_name,
                 cricket_skill: player.cricket_skill || 'N/A',
                 was_present_kc3: player.was_present_kc3 || 'No',
-                photo_url: player.photo_url || '',
+                photo_url: finalPhotoUrl,
                 base_price: player.base_price || 20000000,
                 category: player.category || 'Silver',
                 role: player.role || 'All-rounder',

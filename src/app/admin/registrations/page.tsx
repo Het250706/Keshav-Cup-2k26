@@ -232,11 +232,10 @@ function RegistrationControlContent() {
                                                     style={{ width: '60px', height: '60px', borderRadius: '12px', background: '#1a1a1a', overflow: 'hidden', cursor: 'zoom-in', border: '2px solid rgba(255,255,255,0.1)' }}
                                                 >
                                                     <img
-                                                        src={fixPhotoUrl(p.photo)}
+                                                        src={fixPhotoUrl(p.photo || p.photo_url, p.fullName || p.first_name)}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                                                         alt="Player Photo"
-                                                        referrerPolicy="no-referrer"
-                                                        title="Drive permissions check"
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.fullName || 'player'}`; }}
                                                     />
                                                 </motion.div>
                                             </td>

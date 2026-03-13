@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { supabase } from '@/lib/supabase';
+import { fixPhotoUrl } from '@/lib/utils';
 
 export async function POST(request: Request) {
     try {
@@ -23,6 +24,14 @@ export async function POST(request: Request) {
             team_preference
         } = body;
 
+        // Normalize and then migrate if it's a Drive link
+        const normalizedUrl = fixPhotoUrl(photo_url, first_name);
+        const migratingName = `${first_name}_${last_name}`;
+        
+        // Import migrate utility
+        const { migrateDriveImageToSupabase } = await import('@/lib/drive-to-supabase');
+        const finalPhotoUrl = await migrateDriveImageToSupabase(normalizedUrl, migratingName);
+
         if (!first_name || !last_name || !email) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
         }
@@ -41,7 +50,7 @@ export async function POST(request: Request) {
                 base_price: Number(base_price) || 20000000,
                 batting_style: batting_style || 'Right Handed',
                 bowling_style: bowling_style || 'Right Arm',
-                photo_url: photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${first_name}`,
+                photo_url: finalPhotoUrl,
                 city: team_preference || 'None', // Overloading city or using as separate field
                 status: 'pending',
                 auction_status: 'pending'

@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Activity, Trophy, Swords, Target, Timer, TrendingUp, User } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Activity, Trophy, Swords, Target, Timer, TrendingUp, User, UserCheck, Star } from 'lucide-react';
+import { fixPhotoUrl } from '@/lib/utils';
 
-export default function PublicScoreboard() {
+export default function ScoreboardPage() {
     const [match, setMatch] = useState<any>(null);
     const [nextMatch, setNextMatch] = useState<any>(null);
     const [innings, setInnings] = useState<any[]>([]);
@@ -196,7 +196,7 @@ export default function PublicScoreboard() {
                                 <div key={s.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '15px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                         <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#222', overflow: 'hidden' }}>
-                                            <img src={s.players?.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.players?.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                            <img src={fixPhotoUrl(s.players?.photo_url, s.players?.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.players?.first_name}`; }} />
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: 800 }}>{s.players?.first_name} {s.players?.last_name}</div>
@@ -221,7 +221,7 @@ export default function PublicScoreboard() {
                                 <div key={s.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '15px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                         <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#222', overflow: 'hidden' }}>
-                                            <img src={s.players?.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.players?.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                            <img src={fixPhotoUrl(s.players?.photo_url, s.players?.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.players?.first_name}`; }} />
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: 800 }}>{s.players?.first_name} {s.players?.last_name}</div>

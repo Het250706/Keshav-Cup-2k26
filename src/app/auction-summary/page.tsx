@@ -58,7 +58,7 @@ export default function AuctionSummary() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
                     <div>
                         <h1 style={{ fontSize: '3rem', fontWeight: 950, letterSpacing: '-2px' }}>AUCTION <span style={{ color: 'var(--primary)' }}>SUMMARY</span></h1>
-                        <p style={{ color: 'var(--text-muted)', fontWeight: 800 }}>KESHAV CUP 3.0 LIVE TRACKER</p>
+                        <p style={{ color: 'var(--text-muted)', fontWeight: 800 }}>KESHAV CUP 4.0 LIVE TRACKER</p>
                     </div>
                 </div>
 
@@ -74,7 +74,7 @@ export default function AuctionSummary() {
                                 {currentPlayer ? (
                                     <div style={{ display: 'flex', gap: '40px', alignItems: 'center' }}>
                                         <div style={{ width: '220px', height: '280px', borderRadius: '25px', overflow: 'hidden', border: '2px solid var(--primary)' }}>
-                                            <img src={fixPhotoUrl(currentPlayer.photo_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                            <img src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                                         </div>
                                         <div>
                                             <h3 style={{ fontSize: '2.5rem', fontWeight: 950 }}>{currentPlayer.first_name} {currentPlayer.last_name}</h3>

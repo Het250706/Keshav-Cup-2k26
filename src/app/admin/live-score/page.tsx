@@ -4,16 +4,15 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { fixPhotoUrl } from '@/lib/utils';
 import Navbar from '@/components/Navbar';
-import {
-    Plus, Trash2, Zap, Save, RefreshCw, Trophy,
-    ChevronRight, UserCheck, Shield, Gavel,
-    Swords, LayoutGrid, FileText, ChevronLeft,
-    UserPlus, Activity, Target, Download
+import { 
+    ChevronRight, Settings, Users, Save, Play, Square, Trophy, Target, TrendingUp, Hand, 
+    UserCheck, Search, Trash2, Shield, User, Loader2, Plus, Zap, RefreshCw, 
+    ChevronLeft, UserPlus, Activity, Download 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RoleGuard from '@/components/RoleGuard';
-import { fixPhotoUrl } from '@/lib/utils';
 import MatchScorecard from '@/components/MatchScorecard';
 export default function AdminLiveScorePage() {
     return (
@@ -746,7 +745,7 @@ function AdminLiveScoreContent() {
                                                 <tr key={s.player_id} style={{ borderBottom: '1px solid var(--border)' }}>
                                                     <td style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                         <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#222', overflow: 'hidden' }}>
-                                                            <img src={s.photo_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                                            <img src={fixPhotoUrl(s.photo_url, s.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.first_name}`; }} />
                                                         </div>
                                                         <span style={{ fontWeight: 800 }}>{s.first_name} {s.last_name}</span>
                                                     </td>
@@ -832,10 +831,11 @@ function AdminLiveScoreContent() {
                                                 }} />
                                                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#222', overflow: 'hidden' }}>
                                                     <img
-                                                        src={fixPhotoUrl(p.photo_url) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`}
+                                                        src={fixPhotoUrl(p.photo_url, p.first_name)}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                         alt=""
                                                         referrerPolicy="no-referrer"
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`; }}
                                                     />
                                                 </div>
                                                 <div style={{ flex: 1 }}>
@@ -862,10 +862,11 @@ function AdminLiveScoreContent() {
                                                 }} />
                                                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#222', overflow: 'hidden' }}>
                                                     <img
-                                                        src={fixPhotoUrl(p.photo_url) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`}
+                                                        src={fixPhotoUrl(p.photo_url, p.first_name)}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                         alt=""
                                                         referrerPolicy="no-referrer"
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`; }}
                                                     />
                                                 </div>
                                                 <div style={{ flex: 1 }}>

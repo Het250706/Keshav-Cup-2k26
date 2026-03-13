@@ -121,7 +121,14 @@ export default function TeamSquadList() {
                                                             <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', overflow: 'hidden', background: '#111' }}>
-                                                                        <img src={fixPhotoUrl(p.photo_url) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                                                        <img 
+                                                                            src={fixPhotoUrl(p.photo_url, p.first_name)} 
+                                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                                                            alt="" 
+                                                                            onError={(e) => {
+                                                                                (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`;
+                                                                            }}
+                                                                        />
                                                                     </div>
                                                                     <div>
                                                                         <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{p.first_name} {p.last_name}</div>

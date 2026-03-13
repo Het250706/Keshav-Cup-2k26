@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Users, UserCheck, UserMinus, DollarSign, Trophy, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { fixPhotoUrl } from '@/lib/utils';
 
 export default function AnalyticsDashboard() {
     const [stats, setStats] = useState({
@@ -91,11 +92,14 @@ export default function AnalyticsDashboard() {
                 >
                     <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
                         <div style={{ width: '150px', height: '200px', borderRadius: '20px', overflow: 'hidden', border: '2px solid var(--primary)', background: '#111' }}>
-                            <img
-                                src={stats.highestBid.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${stats.highestBid.name}`}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                alt=""
-                            />
+                                <img
+                                    src={fixPhotoUrl(stats.highestBid.photo, stats.highestBid.name)}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    alt=""
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${stats.highestBid.name}`;
+                                    }}
+                                />
                         </div>
                         <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary)', marginBottom: '10px' }}>

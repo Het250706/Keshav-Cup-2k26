@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { fixPhotoUrl } from '@/lib/utils';
 import { Trophy, User, Users, Gavel, Award, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { getPurplePushp } from '@/lib/auction-logic';
 
 interface Player {
   id: string;
@@ -100,14 +101,22 @@ export default function BigAuctionScreen() {
     }
   };
 
-  const handleStateUpdate = async (newState: AuctionState) => {
-    setAuctionState(newState);
+    const handleStateUpdate = async (newState: AuctionState) => {
+        // PRESERVE SOLD DATA: If the status is SOLD, keep the previous player/bid/team 
+        // even if the DB has already reset them to 0/null.
+        if (newState.status === 'SOLD') {
+            if (!newState.current_player_id) newState.current_player_id = auctionState?.current_player_id || null;
+            if (!newState.current_highest_bid) newState.current_highest_bid = auctionState?.current_highest_bid || 0;
+            if (!newState.highest_bid_team_id) newState.highest_bid_team_id = auctionState?.highest_bid_team_id || null;
+        }
 
-    // Play Bid Sound if bid increased
-    if (newState.current_highest_bid > prevBidRef.current) {
-      bidSoundRef.current?.play().catch(() => {});
-      prevBidRef.current = newState.current_highest_bid;
-    }
+        setAuctionState(newState);
+
+        // Play Bid Sound if bid increased
+        if (newState.current_highest_bid > prevBidRef.current) {
+            bidSoundRef.current?.play().catch(() => { });
+            prevBidRef.current = newState.current_highest_bid;
+        }
 
     // Play Hammer Sound & Confetti if sold
     if (newState.status === 'SOLD' && prevStatusRef.current !== 'SOLD') {
@@ -184,9 +193,12 @@ export default function BigAuctionScreen() {
           <div className="h-12 w-12 bg-yellow-500 rounded-lg flex items-center justify-center shadow-[0_0_20px_rgba(234,179,8,0.5)]">
             <Trophy className="text-black" size={32} />
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-yellow-200 to-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase">
-            Keshav Cup 2026 Auction
-          </h1>
+          <div className="flex flex-col items-center">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-yellow-200 to-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase">
+              KESHAV CUP
+            </h1>
+            <p className="text-yellow-500 font-black text-sm tracking-[0.5em] mt-1">4.0 POWER EDITION</p>
+          </div>
           <div className="px-3 py-1 bg-red-600 rounded-md animate-pulse">
             <span className="text-xs font-bold tracking-widest uppercase">Live</span>
           </div>
@@ -238,9 +250,12 @@ export default function BigAuctionScreen() {
                         className="w-80 h-80 rounded-full border-8 border-yellow-500/50 p-2 relative z-10 overflow-hidden shadow-[0_0_50px_rgba(234,179,8,0.2)]"
                       >
                         <img 
-                          src={fixPhotoUrl(currentPlayer.photo_url) || 'https://via.placeholder.com/400'} 
+                          src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)} 
                           alt={currentPlayer.first_name}
                           className="w-full h-full object-cover rounded-full"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentPlayer.first_name}`;
+                          }}
                         />
                       </motion.div>
                       {/* Category Badge */}
@@ -300,6 +315,34 @@ export default function BigAuctionScreen() {
             <div className="absolute top-0 right-0 p-6 opacity-10">
               <Gavel size={120} />
             </div>
+
+            {auctionState?.current_highest_bid && getPurplePushp(auctionState.current_highest_bid) && (
+              <motion.div
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: -15 }}
+                style={{
+                  position: 'absolute',
+                  top: '-30px',
+                  right: '20px',
+                  width: '120px',
+                  height: '120px',
+                  background: 'rgba(147, 51, 234, 0.15)',
+                  border: '6px double #9333ea',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#9333ea',
+                  zIndex: 10,
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: '0 0 30px rgba(147, 51, 234, 0.3)'
+                }}
+              >
+                <div style={{ fontSize: '1.4rem', fontWeight: 950 }}>અર્પણમ</div>
+                <div style={{ fontSize: '2.5rem', fontWeight: 950, lineHeight: 1 }}>{getPurplePushp(auctionState.current_highest_bid)}</div>
+              </motion.div>
+            )}
             
             <p className="text-yellow-500 font-black text-2xl tracking-[0.2em] uppercase mb-4 drop-shadow-md">
               Current Highest Bid
@@ -359,19 +402,52 @@ export default function BigAuctionScreen() {
         <div className="flex items-center gap-8 w-full">
           <div className="flex items-center gap-2 text-yellow-500 font-bold whitespace-nowrap">
             <Award size={20} />
-            <span className="uppercase tracking-widest text-sm">Auction Protocol V3.0</span>
+            <span className="uppercase tracking-widest text-sm">Auction Protocol V4.0</span>
           </div>
           <div className="h-4 w-[1px] bg-white/20"></div>
           
           {/* Marquee effect for status transitions */}
-          <div className="flex-1 overflow-hidden">
-             <motion.div 
-               animate={{ x: [0, -100, 0] }}
-               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-               className="text-slate-400 font-medium tracking-[0.3em] uppercase text-sm whitespace-nowrap"
-             >
-                {auctionState?.bidding_status || 'System Standby'} • Secure Bidding Enabled • Pure Realtime Sync • Next Generation Display {auctionState?.bidding_status && `• ${auctionState.bidding_status}`}
-             </motion.div>
+          <div className="flex-1 overflow-hidden relative h-full flex items-center">
+             <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black to-transparent z-10"></div>
+             <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black to-transparent z-10"></div>
+             
+             <div className="flex whitespace-nowrap animate-marquee-fast hover:pause items-center">
+                <span className="text-slate-400 font-black tracking-[0.3em] uppercase text-sm flex items-center gap-8 px-4">
+                   <span className="text-yellow-500">•</span>
+                   {auctionState?.bidding_status || 'SYSTEM STANDBY'}
+                   <span className="text-yellow-500">•</span>
+                   SECURE BIDDING ENABLED
+                   <span className="text-yellow-500">•</span>
+                   PURE REALTIME SYNC
+                   <span className="text-yellow-500">•</span>
+                   NEXT GENERATION DISPLAY
+                   <span className="text-yellow-500">•</span>
+                   KESHAV CUP 4.0 POWER EDITION
+                   {leadingTeam && (
+                     <>
+                        <span className="text-yellow-500">•</span>
+                        LEADING: {leadingTeam.name.toUpperCase()} ({auctionState?.current_highest_bid} P)
+                     </>
+                   )}
+                   <span className="text-yellow-500">•</span>
+                   JAY SWAMINARAYAN
+                </span>
+                {/* Duplicate for infinite loop */}
+                <span className="text-slate-400 font-black tracking-[0.3em] uppercase text-sm flex items-center gap-8 px-4">
+                   <span className="text-yellow-500">•</span>
+                   {auctionState?.bidding_status || 'SYSTEM STANDBY'}
+                   <span className="text-yellow-500">•</span>
+                   SECURE BIDDING ENABLED
+                   <span className="text-yellow-500">•</span>
+                   PURE REALTIME SYNC
+                   <span className="text-yellow-500">•</span>
+                   NEXT GENERATION DISPLAY
+                   <span className="text-yellow-500">•</span>
+                   KESHAV CUP 4.0 POWER EDITION
+                   <span className="text-yellow-500">•</span>
+                   JAY SWAMINARAYAN
+                </span>
+             </div>
           </div>
           
           <div className="flex items-center gap-4">
@@ -380,7 +456,7 @@ export default function BigAuctionScreen() {
                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Server: OK</span>
              </div>
              <div className="px-4 py-1 bg-white/5 rounded-full border border-white/10">
-               <span className="text-xs font-bold text-white tracking-widest">2026 EDITION</span>
+               <span className="text-xs font-bold text-white tracking-widest">4.0 EDITION</span>
              </div>
           </div>
         </div>
@@ -393,40 +469,31 @@ export default function BigAuctionScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-lg flex items-center justify-center p-8"
+            className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-8"
           >
             <motion.div
-              initial={{ scale: 0.5, opacity: 0, rotate: -5 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              transition={{ type: "spring", damping: 12 }}
-              className="text-center space-y-8"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-center space-y-12"
             >
-              <motion.div
-                animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
-                transition={{ duration: 1.5, repeat: 1 }}
-                className="inline-block"
-              >
-                <Gavel className="text-yellow-500 w-48 h-48 mx-auto" />
-              </motion.div>
-              
               <div className="space-y-2">
-                <h2 className="text-[12rem] font-black leading-none text-transparent bg-clip-text bg-gradient-to-b from-green-400 to-green-700 drop-shadow-[0_0_50px_rgba(34,197,94,0.5)] uppercase italic">
-                  Sold!
+                <h2 className="text-[12rem] font-black leading-none text-[#00ff80] drop-shadow-[0_0_50px_rgba(34,197,94,0.5)] uppercase italic">
+                  SOLD
                 </h2>
-                <div className="h-2 w-full bg-gradient-to-r from-transparent via-green-500 to-transparent"></div>
+                <div className="h-2 w-full bg-gradient-to-r from-transparent via-[#00ff80] to-transparent"></div>
               </div>
 
               <div className="space-y-4">
-                <p className="text-5xl font-black text-white">
+                <p className="text-6xl font-black text-white">
                   {currentPlayer?.first_name?.toUpperCase()} {currentPlayer?.last_name?.toUpperCase()}
                 </p>
-                <div className="flex items-center justify-center gap-6">
-                   <p className="text-3xl font-medium text-slate-400">TO</p>
-                   <p className="text-6xl font-black text-yellow-500 tracking-tighter">
+                <div className="flex flex-col items-center gap-2">
+                   <p className="text-2xl font-black text-slate-400 tracking-[0.3em]">ACQUIRED BY</p>
+                   <p className="text-8xl font-black text-yellow-500 tracking-tighter drop-shadow-[0_0_30px_rgba(234,179,8,0.3)]">
                      {leadingTeam?.name?.toUpperCase() || 'TEAM'}
                    </p>
                 </div>
-                <div className="inline-block bg-white/10 px-8 py-3 rounded-2xl border border-white/20">
+                <div className="inline-block bg-white/5 px-12 py-4 rounded-3xl border border-white/10">
                   <p className="text-4xl font-black text-white">
                     {auctionState?.current_highest_bid?.toLocaleString()} <span className="text-yellow-500 text-xl">PUSHP</span>
                   </p>
@@ -509,6 +576,19 @@ export default function BigAuctionScreen() {
 
         .text-glow {
           text-shadow: 0 0 20px rgba(234,179,8,0.4);
+        }
+
+        @keyframes marquee-fast {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+
+        .animate-marquee-fast {
+          animation: marquee-fast 30s linear infinite;
+        }
+
+        .hover\:pause:hover {
+          animation-play-state: paused;
         }
       `}</style>
     </div>

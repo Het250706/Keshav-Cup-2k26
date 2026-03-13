@@ -125,7 +125,7 @@ export default function AuctionRoom({
                     {player && (
                         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '25px', display: 'flex', overflow: 'hidden', border: '1px solid var(--border)' }}>
                             <div style={{ width: '280px', height: '350px', background: '#111' }}>
-                                <img src={fixPhotoUrl(player.photo_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                <img src={fixPhotoUrl(player.photo_url, player.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.first_name}`; }} />
                             </div>
                             <div style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                                 <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '2px' }}>NOW ON FLOOR</div>

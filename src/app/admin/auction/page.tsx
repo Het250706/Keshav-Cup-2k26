@@ -150,7 +150,7 @@ function AdminAuctionContent() {
                                 <div style={{ display: 'flex', gap: '40px' }}>
                                     <div style={{ width: '300px', height: '380px', borderRadius: '24px', overflow: 'hidden', border: '2px solid var(--primary)', background: '#111' }}>
                                         <img
-                                            src={fixPhotoUrl(currentPlayer.photo_url)}
+                                            src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             alt=""
                                             onError={(e) => {
@@ -240,7 +240,7 @@ function AdminAuctionContent() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: 'calc(100vh - 250px)', overflowY: 'auto' }}>
                                 {filteredPlayers.map(p => (
                                     <div key={p.id} onClick={() => handleAction('start', { player_id: p.id })} style={{ padding: '12px', borderRadius: '15px', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: '15px', cursor: 'pointer', border: '1px solid transparent' }} className="select-card">
-                                        <div style={{ width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden' }}><img src={fixPhotoUrl(p.photo_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /></div>
+                                        <div style={{ width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden' }}><img src={fixPhotoUrl(p.photo_url, p.first_name)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`; }} /></div>
                                         <div style={{ flex: 1 }}><div style={{ fontWeight: 800 }}>{p.first_name} {p.last_name}</div><div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{p.cricket_skill}</div></div>
                                         <ChevronRight size={18} color="var(--primary)" />
                                     </div>

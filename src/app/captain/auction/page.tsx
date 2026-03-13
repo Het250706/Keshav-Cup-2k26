@@ -216,12 +216,10 @@ function CaptainAuctionContent() {
                                 <div style={{ display: 'flex', gap: '40px', alignItems: 'center', flexWrap: 'wrap' }}>
                                     <div style={{ width: '220px', height: '260px', borderRadius: '25px', overflow: 'hidden', border: '3px solid var(--primary)', background: '#111', boxShadow: '0 0 30px rgba(255,215,0,0.1)' }}>
                                         <img
-                                            src={fixPhotoUrl(currentPlayer.photo_url)}
+                                            src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             alt=""
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentPlayer.first_name}`;
-                                            }}
+                                            onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentPlayer.first_name}`; }}
                                         />
                                     </div>
                                     <div style={{ flex: 1 }}>
