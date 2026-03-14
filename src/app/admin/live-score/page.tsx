@@ -163,16 +163,20 @@ function AdminLiveScoreContent() {
         }
 
         const { data, error } = await supabase.from('matches').insert([{
+            match_name: formData.match_name || 'Match',
+            match_type: formData.match_type,
             team1_id: formData.team1_id,
             team2_id: formData.team2_id,
+            max_overs: parseInt(formData.max_overs),
+            venue: formData.venue,
             status: 'live'
         }]).select().single();
 
         if (error) {
             console.error('CREATE_MATCH_ERROR:', error);
             alert(`Error creating match: ${error.message || 'Unknown error'} (Code: ${error.code})`);
-            if (error.code === '42P01') {
-                alert('Table "matches" does not exist. Please run the SQL migration script.');
+            if (error.code === 'PGRST204' || error.message.includes('match_type')) {
+                alert('Missing database column "match_type". Please run VERCEL_SCHEMA_FIX.sql in your Supabase SQL editor.');
             }
         } else {
             await fetchMatches();
@@ -345,8 +349,26 @@ function AdminLiveScoreContent() {
     }, [strikerId, bowlerId, currentInnings?.id]);
 
     const fetchMatchEvents = async (matchId: string) => {
-        const { data } = await supabase.from('match_events').select('*, striker:players!striker_id(*), bowler:players!bowler_id(*), dismissed:players!dismissed_player_id(*)').eq('match_id', matchId).order('created_at', { ascending: true });
-        if (data) setMatchEvents(data);
+        // Try to fetch with striker_id, fallback to batsman_id if it fails
+        const { data, error } = await supabase.from('match_events').select(`
+            *,
+            striker:players!striker_id(*),
+            bowler:players!bowler_id(*),
+            dismissed:players!dismissed_player_id(*)
+        `).eq('match_id', matchId).order('created_at', { ascending: true });
+        
+        if (error) {
+            console.error('FETCH_EVENTS_ERROR:', error);
+            // Fallback for older schema
+            const { data: fallbackData } = await supabase.from('match_events').select(`
+                *,
+                striker:players!batsman_id(*),
+                bowler:players!bowler_id(*)
+            `).eq('match_id', matchId).order('created_at', { ascending: true });
+            if (fallbackData) setMatchEvents(fallbackData);
+        } else if (data) {
+            setMatchEvents(data);
+        }
     };
 
     // --- SCORING ACTIONS ---
@@ -376,6 +398,7 @@ function AdminLiveScoreContent() {
             over_number: Math.floor(currentInnings?.overs || 0),
             ball_number: Math.round(((currentInnings?.overs || 0) % 1) * 10) + 1,
             batsman_id: strikerId,
+            striker_id: strikerId, // Compatibility
             bowler_id: bowlerId,
             runs: runs,
             is_wicket: isWicket,
