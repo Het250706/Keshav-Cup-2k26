@@ -6,16 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "migrate-photos": "node scripts/trigger-migration.mjs"
+    "lint": "eslint"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.99.1",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.34.0",
-    "jspdf": "^4.1.0",
-    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "react": "19.2.3",

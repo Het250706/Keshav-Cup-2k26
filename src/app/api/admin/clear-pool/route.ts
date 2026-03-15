@@ -30,6 +30,11 @@ export async function POST() {
         console.log('Deleting player match stats...');
         await supabaseAdmin.from('player_match_stats').delete().not('player_id', 'is', null);
 
+        // 4b. Null out player references in innings table (FK constraint fix)
+        console.log('Clearing innings player references...');
+        await supabaseAdmin.from('innings').update({ striker_id: null }).not('striker_id', 'is', null);
+        await supabaseAdmin.from('innings').update({ bowler_id: null }).not('bowler_id', 'is', null);
+
         // 5. Delete all players
         console.log('Deleting all players from pool...');
         const { error: deleteError } = await supabaseAdmin.from('players').delete().not('id', 'is', null);

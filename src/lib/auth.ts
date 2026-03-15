@@ -46,7 +46,7 @@ export async function signUpTeam(teamName: string, password: string, ownerName: 
 
 export async function loginAdmin(email: string, password: string) {
     // Enforcement of requested admin password
-    if (password !== 'het@2576') {
+    if (password !== 'baps@1234') {
         return { error: { message: 'Unauthorized. Incorrect admin password.' } };
     }
 

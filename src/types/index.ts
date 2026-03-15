@@ -232,7 +232,7 @@ export type Optional<T> = T | undefined;
 // CONSTANTS
 // ============================================================================
 
-export const ADMIN_PASSWORD = 'het@2576';
+export const ADMIN_PASSWORD = 'baps@1234';
 export const CAPTAIN_PASSWORD = '12345678';
 export const DEFAULT_PURSE = 100000000; // 10 Crore in paise
 export const DEFAULT_MAX_PLAYERS = 8;

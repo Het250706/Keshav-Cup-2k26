@@ -18,6 +18,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: data.error }, { status: 400 });
         }
 
+        // Force status to IDLE after a successful sell so the dashboard shows "NEXT PLAYER"
+        // sell_player_v3 clears current_player_id but leaves status as BIDDING
+        await supabaseAdmin.from('auction_state').update({
+            status: 'IDLE',
+            bidding_status: 'IDLE',
+            last_updated_at: new Date().toISOString()
+        }).eq('id', 1);
+
         return NextResponse.json({ success: true, message: 'Player sold successfully' });
     } catch (error: any) {
         console.error('Assign API Error:', error);

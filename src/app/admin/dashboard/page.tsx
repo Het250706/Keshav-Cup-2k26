@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
-import { Trash2, X, Gavel, Users, UserPlus, Shield, LogOut, Zap, Shuffle, FileText, Download, Link as LinkIcon, FileSpreadsheet, ExternalLink, Settings, LayoutGrid, Hammer } from 'lucide-react';
+import { Trash2, X, Gavel, Users, UserPlus, Shield, LogOut, Zap, Shuffle, Download, Link as LinkIcon, ExternalLink, Settings, LayoutGrid, Hammer, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import RoleGuard from '@/components/RoleGuard';
@@ -29,6 +29,10 @@ function AdminDashboardContent() {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [sheetSyncing, setSheetSyncing] = useState(false);
+    const [selectedSlot, setSelectedSlot] = useState<string>('All');
+    const [showSlotManager, setShowSlotManager] = useState(false);
+    const [newSlotName, setNewSlotName] = useState('');
+    const [reAuctionLoading, setReAuctionLoading] = useState(false);
     const router = useRouter();
 
     const fetchData = async () => {
@@ -60,10 +64,10 @@ function AdminDashboardContent() {
 
         const channelId = `admin_dashboard_realtime_${Math.random()}`;
         const stateSub = supabase.channel(channelId)
-            .on('postgres_changes' as any, { event: '*', table: 'auction_state', schema: 'public' }, () => fetchData())
-            .on('postgres_changes' as any, { event: '*', table: 'players', schema: 'public' }, () => fetchData())
-            .on('postgres_changes' as any, { event: '*', table: 'teams', schema: 'public' }, () => fetchData())
-            .on('postgres_changes' as any, { event: '*', table: 'bids', schema: 'public' }, () => fetchData())
+            .on('postgres_changes' as any, { event: '*', table: 'auction_state', schema: 'public' }, () => { if (isMounted) fetchData(); })
+            .on('postgres_changes' as any, { event: '*', table: 'players', schema: 'public' }, () => { if (isMounted) fetchData(); })
+            .on('postgres_changes' as any, { event: '*', table: 'teams', schema: 'public' }, () => { if (isMounted) fetchData(); })
+            .on('postgres_changes' as any, { event: '*', table: 'bids', schema: 'public' }, () => { if (isMounted) fetchData(); })
             .subscribe();
 
         return () => {
@@ -119,19 +123,72 @@ function AdminDashboardContent() {
     };
 
     const drawRandom = async () => {
+        // Filter players based on selected slot
+        const pool = selectedSlot === 'All' 
+            ? players.filter(p => p.auction_status === 'pending')
+            : players.filter(p => p.auction_status === 'pending' && p.category === selectedSlot);
+
+        if (pool.length === 0) {
+            alert(selectedSlot === 'All' ? 'Auction Pool Empty!' : `Slot "${selectedSlot}" Completed. Move to Next Slot.`);
+            return;
+        }
+
         setLoading(true);
         try {
-            const res = await fetch('/api/auction/draw-random', { method: 'POST' });
-            if (res.ok) {
-                fetchData();
-            } else {
-                const data = await res.json();
-                alert(data.error || 'Failed to draw random player');
-            }
+            // Pick a random player from the filtered pool locally and start their auction
+            const randomPlayer = pool[Math.floor(Math.random() * pool.length)];
+            await controlAuction('start', randomPlayer.id);
         } catch (err) {
             alert('Error drawing player');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const updatePlayerSlot = async (playerId: string, category: string) => {
+        let finalCategory = category;
+        if (category === '+ New Slot') {
+            const name = prompt('Enter new slot name:');
+            if (!name) return;
+            finalCategory = name;
+        }
+        try {
+            const res = await fetch('/api/players/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update', player: { id: playerId, category: finalCategory } })
+            });
+            if (res.ok) fetchData();
+        } catch (err) {
+            alert('Error updating slot');
+        }
+    };
+
+    const deleteSlot = async (slotName: string) => {
+        if (slotName === 'Unassigned') return;
+        if (!confirm(`🚨 Delete Slot "${slotName}"?\n\nThis will move all players in this slot back to "Unassigned".\nNo players will be deleted, only their category will be removed.`)) return;
+        
+        setSyncing(true);
+        try {
+            const playersInSlot = players.filter(p => p.category === slotName);
+            
+            // Update players in sequence (using manage API which uses admin key)
+            await Promise.all(playersInSlot.map(p => 
+                fetch('/api/players/manage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update', player: { id: p.id, category: 'Unassigned' } })
+                })
+            ));
+            
+            if (selectedSlot === slotName) setSelectedSlot('All');
+            alert(`✅ Slot "${slotName}" removed successfully.`);
+            fetchData();
+        } catch (err) {
+            console.error('Delete Slot Error:', err);
+            alert('Failed to delete slot.');
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -247,21 +304,7 @@ function AdminDashboardContent() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-                        {/* Register Box */}
-                        <motion.div
-                            whileHover={{ scale: 1.02, translateY: -5 }}
-                            onClick={() => router.push('/register')}
-                            className="glass"
-                            style={{ padding: '25px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255, 215, 0, 0.05)', border: '1px solid rgba(255, 215, 0, 0.2)' }}
-                        >
-                            <div style={{ background: 'var(--primary)', padding: '15px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <UserPlus size={28} color="#000" />
-                            </div>
-                            <div>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>REGISTER</h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Open Player Registration Form</p>
-                            </div>
-                        </motion.div>
+
 
                         {/* Registration Control Box */}
                         <motion.div
@@ -295,6 +338,30 @@ function AdminDashboardContent() {
                             </div>
                         </motion.div>
 
+                        {/* NEW: Slot Management Box */}
+                        <motion.div
+                            whileHover={{ scale: 1.02, translateY: -5 }}
+                            onClick={() => setShowSlotManager(!showSlotManager)}
+                            className="glass"
+                            style={{
+                                padding: '25px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '20px',
+                                background: showSlotManager ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.05)',
+                                border: showSlotManager ? '2px solid #38bdf8' : '1px solid rgba(56, 189, 248, 0.2)'
+                            }}
+                        >
+                            <div style={{ background: '#38bdf8', padding: '15px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <LayoutGrid size={28} color="#000" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>SLOT MANAGEMENT</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Create & Assign Auction Slots</p>
+                            </div>
+                        </motion.div>
+
                         {/* NEW: V3 Auction Console Box */}
                         <motion.div
                             whileHover={{ scale: 1.02, translateY: -5 }}
@@ -321,13 +388,140 @@ function AdminDashboardContent() {
                         </motion.div>
                     </div>
 
+                    {/* SLOT MANAGEMENT DRAWER */}
+                    <AnimatePresence>
+                        {showSlotManager && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                style={{ overflow: 'hidden', marginBottom: '30px' }}
+                            >
+                                <div className="glass" style={{ padding: '30px', border: '1px solid #38bdf8' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                        <h2 style={{ fontSize: '1.2rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <LayoutGrid size={20} color="#38bdf8" /> CONFIGURE AUCTION SLOTS
+                                        </h2>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <input 
+                                                type="text" 
+                                                placeholder="New Slot Name..." 
+                                                value={newSlotName} 
+                                                onChange={(e) => setNewSlotName(e.target.value)}
+                                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', color: '#fff', fontSize: '0.8rem' }}
+                                            />
+                                            <button 
+                                                onClick={() => {
+                                                    if (!newSlotName) return;
+                                                    setNewSlotName('');
+                                                    alert(`To add slot "${newSlotName}", assign a player to it using the pool table actions below.`);
+                                                }}
+                                                className="btn-secondary" 
+                                                style={{ fontSize: '0.7rem', padding: '0 15px' }}
+                                            >+ CREATE SLOT</button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                        {['All', ...Array.from(new Set(players.map(p => p.category || 'Unassigned')))].map(slot => (
+                                            <div key={slot} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                <button 
+                                                    onClick={() => setSelectedSlot(slot)}
+                                                    style={{
+                                                        padding: '10px 20px',
+                                                        paddingRight: (slot !== 'All' && slot !== 'Unassigned') ? '45px' : '20px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: 800,
+                                                        background: selectedSlot === slot ? '#38bdf8' : 'rgba(255,255,255,0.05)',
+                                                        color: selectedSlot === slot ? '#000' : '#fff',
+                                                        border: selectedSlot === slot ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                                                        transition: 'all 0.2s',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {slot === 'All' ? '🌐 ALL PLAYERS' : `📦 SLOT: ${slot}`}
+                                                    <span style={{ marginLeft: '8px', opacity: 0.5 }}>
+                                                        ({players.filter(p => (slot === 'All' || p.category === slot) && p.auction_status === 'pending').length})
+                                                    </span>
+                                                </button>
+                                                {slot !== 'All' && slot !== 'Unassigned' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            deleteSlot(slot);
+                                                        }}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            right: '10px',
+                                                            background: 'rgba(255, 75, 75, 0.1)',
+                                                            border: 'none',
+                                                            width: '24px',
+                                                            height: '24px',
+                                                            borderRadius: '6px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: '#ff4b4b',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p style={{ marginTop: '15px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>* Selecting a slot will restrict the "NEXT PLAYER" button to only players in that category.</p>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     <div className="admin-grid">
                         <div className="glass" style={{ padding: '0', overflow: 'hidden' }}>
                             <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h2 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <Users size={18} /> Player Pool ({players.length})
-                                </h2>
-                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    </h2>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        {selectedSlot !== 'All' && (
+                                            <div style={{ background: '#38bdf8', color: '#000', padding: '4px 12px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 950, textTransform: 'uppercase' }}>
+                                                ACTIVE SLOT: {selectedSlot}
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={async () => {
+                                            if (!confirm('🔄 RESTORE ALL PLAYERS from Google Sheet? This will re-import all registered players into the pool.')) return;
+                                            setSyncing(true);
+                                            try {
+                                                const res = await fetch('/api/admin/bulk-push', { method: 'POST' });
+                                                const data = await res.json();
+                                                if (data.success) {
+                                                    alert(`✅ Restored ${data.pushed} players!\nSkipped: ${data.skipped} (already exist)\n\n${data.message}`);
+                                                    fetchData();
+                                                } else {
+                                                    throw new Error(data.error || 'Restore failed');
+                                                }
+                                            } catch (err: any) {
+                                                alert('Error: ' + err.message);
+                                            } finally {
+                                                setSyncing(false);
+                                            }
+                                        }}
+                                        disabled={syncing}
+                                        style={{
+                                            background: 'rgba(0, 255, 128, 0.1)',
+                                            color: '#00ff80',
+                                            border: '1px solid rgba(0, 255, 128, 0.3)',
+                                            padding: '6px 15px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 900,
+                                            cursor: syncing ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {syncing ? 'RESTORING...' : '🔄 RESTORE ALL PLAYERS'}
+                                    </button>
                                     <button
                                         onClick={clearPool}
                                         style={{
@@ -389,6 +583,26 @@ function AdminDashboardContent() {
                                                 <td style={tdStyle}>{p.was_present_kc3 || 'N/A'}</td>
                                                 <td style={tdStyle}>
                                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                        <select 
+                                                            value={p.category || 'Unassigned'} 
+                                                            onChange={(e) => updatePlayerSlot(p.id, e.target.value)}
+                                                            style={{ 
+                                                                background: '#000', 
+                                                                border: '1px solid rgba(255,255,255,0.2)', 
+                                                                color: '#fff', 
+                                                                fontSize: '0.7rem', 
+                                                                padding: '6px', 
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontWeight: 700
+                                                            }}
+                                                        >
+                                                            {Array.from(new Set(players.map(pl => pl.category || 'Unassigned'))).map(c => (
+                                                                <option key={c} value={c} style={{ background: '#000', color: '#fff' }}>{c}</option>
+                                                            ))}
+                                                            <option value="+ New Slot" style={{ background: '#000', color: 'var(--primary)', fontWeight: 900 }}>+ New Slot</option>
+                                                        </select>
+
                                                         {p.auction_status === 'sold' && (
                                                             <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#00ff80', padding: '8px 15px' }}>SOLD</div>
                                                         )}
@@ -396,7 +610,13 @@ function AdminDashboardContent() {
                                                             <div style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary)', padding: '8px 15px', background: 'rgba(255,215,0,0.1)', borderRadius: '8px', border: '1px solid var(--primary)', animation: 'pulse 1.5s infinite' }}>LIVE</div>
                                                         )}
                                                         {p.auction_status === 'pending' && (
-                                                            <button onClick={() => controlAuction('start', p.id)} className="btn-primary" style={{ padding: '8px 15px', fontSize: '0.75rem', fontWeight: 900, borderRadius: '8px' }}>START AUCTION</button>
+                                                            <button 
+                                                                onClick={() => controlAuction('start', p.id)} 
+                                                                className="btn-primary" 
+                                                                style={{ padding: '8px 15px', fontSize: '0.75rem', fontWeight: 900, borderRadius: '8px' }}
+                                                            >
+                                                                START AUCTION
+                                                            </button>
                                                         )}
                                                         {p.auction_status === 'unsold' && (
                                                             <button onClick={() => controlAuction('start', p.id)} className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.75rem', fontWeight: 900, borderRadius: '8px', borderColor: '#ff4b4b', color: '#ff4b4b' }}>RE-AUCTION</button>
@@ -425,7 +645,7 @@ function AdminDashboardContent() {
                                     <Gavel size={20} color="var(--primary)" /> OFFICIAL CONSOLE
                                 </h2>
 
-                                {auctionState && (auctionState.status === 'BIDDING' || auctionState.status === 'active') ? (
+                                {auctionState && currentPlayer && (auctionState.status === 'BIDDING' || auctionState.status === 'active') ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '15px', textAlign: 'center', border: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
                                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
@@ -461,17 +681,73 @@ function AdminDashboardContent() {
                                     </div>
                                 ) : (
                                     <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 20px' }}>
-                                        <p style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '25px' }}>CONSOLE IDLE</p>
-                                        <button
-                                            onClick={drawRandom}
-                                            className="btn-primary"
-                                            style={{ width: '100%', padding: '20px', borderRadius: '15px', fontWeight: 900, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
-                                        >
-                                            <Shuffle size={24} /> NEXT PLAYER
-                                        </button>
-                                        <p style={{ fontSize: '0.7rem', marginTop: '15px', opacity: 0.5 }}>Pick a random player from the pool.</p>
+                                        {selectedSlot !== 'All' && players.filter(p => p.auction_status === 'pending' && p.category === selectedSlot).length === 0 ? (
+                                            <div style={{ marginBottom: '20px' }}>
+                                                <div style={{ color: '#38bdf8', fontSize: '1.2rem', fontWeight: 950, marginBottom: '10px' }}>SLOT COMPLETED ✓</div>
+                                                <p style={{ fontSize: '0.8rem' }}>All players in <b>{selectedSlot}</b> have been auctioned.</p>
+                                                <button 
+                                                    onClick={() => setShowSlotManager(true)}
+                                                    className="btn-secondary" 
+                                                    style={{ marginTop: '20px', borderColor: '#38bdf8', color: '#38bdf8' }}
+                                                >MOVE TO NEXT SLOT</button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '25px' }}>
+                                                    CONSOLE IDLE {selectedSlot !== 'All' ? `(${selectedSlot})` : ''}
+                                                </p>
+                                                <button
+                                                    onClick={drawRandom}
+                                                    className="btn-primary"
+                                                    style={{ width: '100%', padding: '20px', borderRadius: '15px', fontWeight: 900, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
+                                                >
+                                                    <Shuffle size={24} /> NEXT PLAYER
+                                                </button>
+                                                <p style={{ fontSize: '0.7rem', marginTop: '15px', opacity: 0.5 }}>
+                                                    Pick a random {selectedSlot !== 'All' ? <b>{selectedSlot}</b> : 'any'} player.
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 )}
+                            </div>
+
+                            {/* RE-AUCTION POOL PANEL */}
+                            <div className="glass" style={{ padding: '25px', borderColor: '#ff4b4b' }}>
+                                <h2 style={{ marginBottom: '15px', fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', color: '#ff4b4b' }}>
+                                    <RotateCcw size={18} /> RE-AUCTION POOL
+                                </h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                    {players.filter(p => p.auction_status === 'unsold').length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '20px', fontSize: '0.75rem', opacity: 0.5 }}>No Unsold Players</div>
+                                    ) : (
+                                        <>
+                                            <button 
+                                                onClick={async () => {
+                                                    const pool = players.filter(p => p.auction_status === 'unsold');
+                                                    if (pool.length > 0) {
+                                                        setReAuctionLoading(true);
+                                                        await controlAuction('start', pool[0].id);
+                                                        setReAuctionLoading(false);
+                                                    }
+                                                }}
+                                                className="btn-secondary" 
+                                                style={{ marginBottom: '10px', width: '100%', borderColor: '#ff4b4b', color: '#ff4b4b', fontWeight: 950 }}
+                                            >
+                                                START RE-AUCTION ({players.filter(p => p.auction_status === 'unsold').length} LEFT)
+                                            </button>
+                                            {players.filter(p => p.auction_status === 'unsold').map(p => (
+                                                <div key={p.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,75,75,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <img src={fixPhotoUrl(p.photo_url, p.first_name)} style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                                        <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{p.first_name} {p.last_name}</span>
+                                                    </div>
+                                                    <button onClick={() => controlAuction('start', p.id)} style={{ padding: '4px 10px', fontSize: '0.65rem', background: '#ff4b4b', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 900 }}>RE-RUN</button>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="glass" style={{ padding: '25px' }}>

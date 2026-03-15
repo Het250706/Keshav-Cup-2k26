@@ -9,11 +9,11 @@ import { fixPhotoUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Gavel,
-    AlertCircle,
     Loader2,
-    Zap,
+    Eye,
+    History,
 } from 'lucide-react';
-import { BIDDING_STAGES, getPurplePushp, getNextBid, MAX_SQUAD_SIZE } from '@/lib/auction-logic';
+import { getPurplePushp, MAX_SQUAD_SIZE } from '@/lib/auction-logic';
 
 export default function CaptainAuctionPage() {
     return (
@@ -30,14 +30,23 @@ function CaptainAuctionContent() {
     const [auctionState, setAuctionState] = useState<any>(null);
     const [currentPlayer, setCurrentPlayer] = useState<any>(null);
     const [highestBidTeam, setHighestBidTeam] = useState<any>(null);
+    const [bidHistory, setBidHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [bidLoading, setBidLoading] = useState(false);
-    const [cooldown, setCooldown] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    const bidButtonRef = useRef<HTMLButtonElement>(null);
+    const currentPlayerIdRef = useRef<string | null>(null);
 
-    const fetchData = async (onlyState = false) => {
+    const fetchBidHistory = async (playerId: string) => {
+        if (!playerId) { setBidHistory([]); return; }
+        const { data } = await supabase
+            .from('bids')
+            .select('*, teams(name)')
+            .eq('player_id', playerId)
+            .order('created_at', { ascending: false })
+            .limit(10);
+        if (data) setBidHistory(data);
+    };
+
+    const fetchData = async () => {
         if (!user?.email) return;
 
         try {
@@ -49,7 +58,6 @@ function CaptainAuctionContent() {
                 .single();
             if (teamData) {
                 setMyTeam(teamData);
-                // Also get squad count
                 const { count } = await supabase
                     .from('players')
                     .select('*', { count: 'exact', head: true })
@@ -66,6 +74,7 @@ function CaptainAuctionContent() {
 
             if (stateData) {
                 setAuctionState(stateData);
+                currentPlayerIdRef.current = stateData.current_player_id;
 
                 // Get Current Player if active
                 if (stateData.current_player_id && (!currentPlayer || currentPlayer.id !== stateData.current_player_id)) {
@@ -75,11 +84,6 @@ function CaptainAuctionContent() {
                         .eq('id', stateData.current_player_id)
                         .single();
                     setCurrentPlayer(playerData);
-
-                    // Auto-focus logic when a new player appears
-                    setTimeout(() => {
-                        bidButtonRef.current?.focus();
-                    }, 500);
                 } else if (!stateData.current_player_id) {
                     setCurrentPlayer(null);
                 }
@@ -95,6 +99,11 @@ function CaptainAuctionContent() {
                 } else {
                     setHighestBidTeam(null);
                 }
+
+                // Fetch bid history
+                if (stateData.current_player_id) {
+                    fetchBidHistory(stateData.current_player_id);
+                }
             }
         } catch (err) {
             console.error('Fetch Error:', err);
@@ -105,57 +114,19 @@ function CaptainAuctionContent() {
 
     useEffect(() => {
         fetchData();
-        const stateSub = supabase.channel('captain_auction_realtime')
-            .on('postgres_changes', { event: '*', table: 'auction_state', schema: 'public' }, () => fetchData(true))
+        const stateSub = supabase.channel('captain_auction_readonly')
+            .on('postgres_changes', { event: '*', table: 'auction_state', schema: 'public' }, () => fetchData())
             .on('postgres_changes', { event: '*', table: 'teams', schema: 'public' }, (p: any) => {
                 if (p.new && (p.new as any).captain_email === user?.email) fetchData();
             })
             .on('postgres_changes', { event: '*', table: 'players', schema: 'public' }, () => fetchData())
+            .on('postgres_changes', { event: 'INSERT', table: 'bids', schema: 'public' }, () => {
+                if (currentPlayerIdRef.current) fetchBidHistory(currentPlayerIdRef.current);
+            })
             .subscribe();
 
         return () => { supabase.removeChannel(stateSub); };
     }, [user?.email]);
-
-    // Keyboard support: ENTER key to bid
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
-                handleBid();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [myTeam, auctionState, bidLoading, cooldown, mySquadCount]);
-
-    const handleBid = async () => {
-        if (!myTeam || bidLoading || cooldown || auctionState?.status !== 'BIDDING') return;
-
-        // Final validation
-        const nextBid = getNextBid(auctionState.current_highest_bid || 0);
-        if (mySquadCount >= MAX_SQUAD_SIZE || myTeam.remaining_budget < nextBid) return;
-
-        setBidLoading(true);
-        setCooldown(true);
-        setError(null);
-
-        try {
-            const res = await fetch('/api/auction/v3/bid', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ team_id: myTeam.id })
-            });
-
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || 'Bid failed');
-        } catch (err: any) {
-            setError(err.message);
-            setTimeout(() => setError(null), 3000);
-        } finally {
-            setBidLoading(false);
-            // 1 second cooldown to prevent spam
-            setTimeout(() => setCooldown(false), 1000);
-        }
-    };
 
     if (loading) return (
         <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: '#fff' }}>
@@ -169,7 +140,7 @@ function CaptainAuctionContent() {
     };
 
     return (
-        <main style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', paddingBottom: '220px' }}>
+        <main style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', paddingBottom: '40px' }}>
             <Navbar />
 
             <div className="container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
@@ -203,145 +174,199 @@ function CaptainAuctionContent() {
                     </div>
                 </div>
 
-                <AnimatePresence mode="wait">
-                    {auctionState?.status === 'BIDDING' && currentPlayer ? (
-                        <motion.div
-                            key={currentPlayer.id}
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 1.05, y: -20 }}
-                        >
-                            {/* Player Card */}
-                            <div className="glass" style={{ padding: '30px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '30px' }}>
-                                <div style={{ display: 'flex', gap: '40px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <div style={{ width: '220px', height: '260px', borderRadius: '25px', overflow: 'hidden', border: '3px solid var(--primary)', background: '#111', boxShadow: '0 0 30px rgba(255,215,0,0.1)' }}>
-                                        <img
-                                            src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                            alt=""
-                                            onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentPlayer.first_name}`; }}
-                                        />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <h2 style={{ fontSize: '3rem', fontWeight: 950, lineHeight: 1, marginBottom: '15px', color: '#fff' }}>
-                                            {currentPlayer.first_name} {currentPlayer.last_name}
-                                        </h2>
-                                        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
-                                            <div style={{ padding: '8px 20px', borderRadius: '12px', background: 'rgba(255,215,0,0.1)', color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 900, border: '1px solid rgba(255,215,0,0.2)' }}>
-                                                {currentPlayer.cricket_skill}
-                                            </div>
-                                            <div style={{ padding: '8px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', fontSize: '0.9rem', fontWeight: 800 }}>
-                                                Last KC Participation: {currentPlayer.was_present_kc3}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ background: 'rgba(0,0,0,0.4)', padding: '25px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '1px' }}>CURRENT BID</div>
-                                                <motion.div
-                                                    key={auctionState.current_highest_bid}
-                                                    initial={{ scale: 1.1 }}
-                                                    animate={{ scale: 1 }}
-                                                    style={{ fontSize: '3rem', fontWeight: 950, color: '#fff' }}
-                                                >
-                                                    {formatPushp(auctionState.current_highest_bid || 0)}
-                                                </motion.div>
-                                            </div>
-                                            {highestBidTeam && (
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800 }}>HIGHEST BIDDER</div>
-                                                    <div style={{ fontSize: '1.6rem', fontWeight: 950, color: 'var(--primary)' }}>{highestBidTeam.name}</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <div style={{ padding: '100px 20px', textAlign: 'center', opacity: 0.5 }}>
-                            <Gavel size={60} style={{ margin: '0 auto 20px' }} />
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: 900 }}>AUCTION IDLE</h2>
-                            <p>Admin is preparing the next player.</p>
-                        </div>
-                    )}
-                </AnimatePresence>
-
-                {error && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ position: 'fixed', bottom: '220px', left: '50%', transform: 'translateX(-50%)', background: '#ff4b4b', color: '#fff', padding: '15px 40px', borderRadius: '50px', fontWeight: 900, zIndex: 2000, boxShadow: '0 10px 40px rgba(255,75,75,0.5)' }}>
-                        <AlertCircle size={24} style={{ display: 'inline', marginRight: '10px' }} /> {error}
-                    </motion.div>
-                )}
-            </div>
-
-            {/* BIG PUSH BUTTON PANEL */}
-            {auctionState?.status === 'BIDDING' && (
+                {/* READ-ONLY LIVE AUCTION BADGE */}
                 <div style={{
-                    position: 'fixed',
-                    bottom: '0',
-                    left: '0',
-                    right: '0',
-                    background: 'linear-gradient(to top, #000 80%, transparent)',
-                    padding: '40px 20px 60px',
-                    zIndex: 1000
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    padding: '10px 20px',
+                    background: 'rgba(0,210,255,0.08)',
+                    borderRadius: '50px',
+                    border: '1px solid rgba(0,210,255,0.2)',
+                    marginBottom: '30px',
+                    width: 'fit-content',
+                    margin: '0 auto 30px'
                 }}>
-                    <div className="container" style={{ maxWidth: '800px', margin: '0 auto' }}>
-                        {(() => {
-                            const nextBid = getNextBid(auctionState.current_highest_bid || 0);
-                            const isSquadFull = mySquadCount >= MAX_SQUAD_SIZE;
-                            const isInsufficient = (myTeam?.remaining_budget || 0) < nextBid;
-                            const isExhausted = (myTeam?.remaining_budget || 0) <= 0;
+                    <Eye size={16} color="#00d2ff" />
+                    <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#00d2ff', letterSpacing: '2px' }}>LIVE AUCTION VIEW — ADMIN CONTROLLED BIDDING</span>
+                </div>
 
-                            const isDisabled = isSquadFull || isInsufficient || bidLoading || cooldown;
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '30px' }}>
+                    {/* LEFT — Player + Bid Info */}
+                    <div>
+                        <AnimatePresence mode="wait">
+                            {auctionState?.status === 'BIDDING' && currentPlayer ? (
+                                <motion.div
+                                    key={currentPlayer.id}
+                                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 1.05, y: -20 }}
+                                >
+                                    {/* Player Card */}
+                                    <div className="glass" style={{ padding: '30px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '30px' }}>
+                                        <div style={{ display: 'flex', gap: '40px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <div style={{ width: '220px', height: '260px', borderRadius: '25px', overflow: 'hidden', border: '3px solid var(--primary)', background: '#111', boxShadow: '0 0 30px rgba(255,215,0,0.1)' }}>
+                                                <img
+                                                    src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    alt=""
+                                                    onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentPlayer.first_name}`; }}
+                                                />
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <h2 style={{ fontSize: '3rem', fontWeight: 950, lineHeight: 1, marginBottom: '15px', color: '#fff' }}>
+                                                    {currentPlayer.first_name} {currentPlayer.last_name}
+                                                </h2>
+                                                <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+                                                    <div style={{ padding: '8px 20px', borderRadius: '12px', background: 'rgba(255,215,0,0.1)', color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 900, border: '1px solid rgba(255,215,0,0.2)' }}>
+                                                        {currentPlayer.cricket_skill}
+                                                    </div>
+                                                    <div style={{ padding: '8px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', fontSize: '0.9rem', fontWeight: 800 }}>
+                                                        KC3: {currentPlayer.was_present_kc3}
+                                                    </div>
+                                                    <div style={{ padding: '8px 20px', borderRadius: '12px', background: 'rgba(255,215,0,0.1)', color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 900, border: '1px solid rgba(255,215,0,0.2)' }}>
+                                                        BASE: {currentPlayer.base_price} P
+                                                    </div>
+                                                </div>
 
-                            let label = `PLACE NEXT BID: ${nextBid} P`;
-                            if (isInsufficient) label = "INSUFFICIENT PUSHP";
-                            if (isExhausted) label = "PURSE EXHAUSTED";
-                            if (isSquadFull) label = "SQUAD FULL";
-
-                            return (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <button
-                                        ref={bidButtonRef}
-                                        disabled={isDisabled}
-                                        onClick={handleBid}
-                                        style={{
-                                            width: '100%',
-                                            height: '100px',
-                                            borderRadius: '25px',
-                                            background: isDisabled ? 'rgba(255,255,255,0.05)' : 'var(--primary)',
-                                            color: isDisabled ? 'rgba(255,255,255,0.3)' : '#000',
-                                            fontWeight: 950,
-                                            fontSize: '2.5rem',
-                                            border: 'none',
-                                            cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                            boxShadow: isDisabled ? 'none' : '0 20px 50px rgba(255,215,0,0.4)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '20px',
-                                            textTransform: 'uppercase',
-                                            transition: 'all 0.2s ease',
-                                            outline: 'none'
-                                        }}
-                                        className="bid-btn"
-                                    >
-                                        {bidLoading ? <Loader2 className="animate-spin" size={40} /> : <><Zap size={36} fill="currentColor" /> {label}</>}
-                                    </button>
-                                    <div style={{ marginTop: '15px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                                        PRESS <span style={{ color: '#fff' }}>ENTER</span> TO PLACE BID INSTANTLY
+                                                <div style={{ background: 'rgba(0,0,0,0.4)', padding: '25px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 900, letterSpacing: '1px' }}>CURRENT BID</div>
+                                                        <motion.div
+                                                            key={auctionState.current_highest_bid}
+                                                            initial={{ scale: 1.1 }}
+                                                            animate={{ scale: 1 }}
+                                                            style={{ fontSize: '3rem', fontWeight: 950, color: '#fff' }}
+                                                        >
+                                                            {formatPushp(auctionState.current_highest_bid || 0)}
+                                                        </motion.div>
+                                                    </div>
+                                                    {highestBidTeam && (
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800 }}>HIGHEST BIDDER</div>
+                                                            <div style={{ fontSize: '1.6rem', fontWeight: 950, color: 'var(--primary)' }}>{highestBidTeam.name}</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    {/* Auction Status Badge */}
+                                    {auctionState?.bidding_status && auctionState.bidding_status !== 'BIDDING OPEN' && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            style={{
+                                                textAlign: 'center',
+                                                padding: '15px',
+                                                background: auctionState.bidding_status === 'GOING ONCE' ? 'rgba(255,165,0,0.15)' : 'rgba(255,75,75,0.15)',
+                                                borderRadius: '15px',
+                                                border: `1px solid ${auctionState.bidding_status === 'GOING ONCE' ? 'rgba(255,165,0,0.3)' : 'rgba(255,75,75,0.3)'}`,
+                                                fontSize: '1.5rem',
+                                                fontWeight: 950,
+                                                color: auctionState.bidding_status === 'GOING ONCE' ? '#ffa500' : '#ff4b4b',
+                                                letterSpacing: '4px'
+                                            }}
+                                        >
+                                            ⚡ {auctionState.bidding_status}
+                                        </motion.div>
+                                    )}
+                                </motion.div>
+                            ) : auctionState?.status === 'SOLD' && currentPlayer ? (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    style={{
+                                        padding: '60px 20px',
+                                        textAlign: 'center',
+                                        background: 'rgba(0,255,128,0.05)',
+                                        borderRadius: '30px',
+                                        border: '1px solid rgba(0,255,128,0.2)'
+                                    }}
+                                >
+                                    <div style={{ fontSize: '6rem', marginBottom: '10px' }}>🔨</div>
+                                    <h2 style={{ fontSize: '3rem', fontWeight: 950, color: '#00ff80', marginBottom: '10px' }}>SOLD!</h2>
+                                    <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                                        {currentPlayer.first_name} {currentPlayer.last_name} — {auctionState.current_highest_bid} Pushp
+                                    </p>
+                                    {highestBidTeam && (
+                                        <p style={{ fontSize: '1.5rem', fontWeight: 950, color: 'var(--primary)', marginTop: '5px' }}>
+                                            → {highestBidTeam.name}
+                                        </p>
+                                    )}
+                                </motion.div>
+                            ) : auctionState?.status === 'UNSOLD' && currentPlayer ? (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    style={{
+                                        padding: '60px 20px',
+                                        textAlign: 'center',
+                                        background: 'rgba(255,75,75,0.05)',
+                                        borderRadius: '30px',
+                                        border: '1px solid rgba(255,75,75,0.2)'
+                                    }}
+                                >
+                                    <div style={{ fontSize: '4rem', marginBottom: '10px' }}>❌</div>
+                                    <h2 style={{ fontSize: '2.5rem', fontWeight: 950, color: '#ff4b4b' }}>UNSOLD</h2>
+                                    <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-muted)', marginTop: '10px' }}>
+                                        {currentPlayer.first_name} {currentPlayer.last_name} goes unsold
+                                    </p>
+                                </motion.div>
+                            ) : (
+                                <div style={{ padding: '100px 20px', textAlign: 'center', opacity: 0.5 }}>
+                                    <Gavel size={60} style={{ margin: '0 auto 20px' }} />
+                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900 }}>AUCTION IDLE</h2>
+                                    <p>Admin is preparing the next player.</p>
                                 </div>
-                            );
-                        })()}
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* RIGHT — Bid History */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="glass" style={{ padding: '20px', borderRadius: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                                <History size={16} color="var(--primary)" />
+                                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '1px' }}>LIVE BID HISTORY</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {bidHistory.length > 0 ? bidHistory.map((b, i) => (
+                                    <motion.div
+                                        key={b.id}
+                                        initial={i === 0 ? { opacity: 0, x: -20 } : {}}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            padding: '10px 14px',
+                                            background: i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)',
+                                            borderRadius: '10px',
+                                            fontSize: '0.85rem',
+                                            border: i === 0 ? '1px solid rgba(255,215,0,0.2)' : '1px solid transparent'
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 800 }}>{b.teams?.name || 'Unknown'}</span>
+                                        <span style={{ fontWeight: 950, color: i === 0 ? 'var(--primary)' : '#fff' }}>{b.amount} P</span>
+                                    </motion.div>
+                                )) : (
+                                    <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>No bids yet</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
 
             <style jsx>{`
-                .bid-btn:active:not(:disabled) { transform: scale(0.96); }
-                .bid-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-2px); }
                 .glass { backdrop-filter: blur(20px); background: rgba(255,255,255,0.02); }
+                .animate-spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @media (max-width: 768px) {
+                    .container > div:last-child { grid-template-columns: 1fr !important; }
+                }
             `}</style>
         </main>
     );

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Zap, History, AlertCircle, Users, Activity } from 'lucide-react';
+import { Trophy, Zap, History, Users } from 'lucide-react';
 import { fixPhotoUrl } from '@/lib/utils';
-import { getPurplePushp, getNextBid, MAX_SQUAD_SIZE } from '@/lib/auction-logic';
+import { getPurplePushp, MAX_SQUAD_SIZE } from '@/lib/auction-logic';
 
 export default function AuctionRoom({
     teamId,
@@ -18,16 +18,16 @@ export default function AuctionRoom({
     const [player, setPlayer] = useState<any>(null);
     const [auctionState, setAuctionState] = useState<any>(null);
     const [bidHistory, setBidHistory] = useState<any[]>([]);
-    const [error, setError] = useState<string | null>(null);
-    const [isBidding, setIsBidding] = useState(false);
     const [myTeam, setMyTeam] = useState<any>(null);
     const [mySquadCount, setMySquadCount] = useState(0);
+    const currentPlayerIdRef = useRef<string | null>(null);
 
     const fetchData = async () => {
         try {
             const { data: stateData } = await supabase.from('auction_state').select('*').single();
             if (stateData) {
                 setAuctionState(stateData);
+                currentPlayerIdRef.current = stateData.current_player_id;
                 if (stateData.current_player_id) {
                     const { data: playerData } = await supabase.from('players').select('*').eq('id', stateData.current_player_id).single();
                     setPlayer(playerData);
@@ -64,49 +64,28 @@ export default function AuctionRoom({
         const stateSub = supabase.channel('auction_room_v3')
             .on('postgres_changes', { event: '*', table: 'auction_state' }, (p: any) => {
                 setAuctionState(p.new);
+                if (p.new) {
+                    currentPlayerIdRef.current = (p.new as any).current_player_id;
+                }
                 if (p.new && (p.new as any).current_player_id) fetchData();
             })
             .on('postgres_changes', { event: '*', table: 'teams' }, (p: any) => {
                 if (teamId && (p.new as any).id === teamId) fetchData();
             })
             .on('postgres_changes', { event: 'INSERT', table: 'bids' }, () => {
-                if (auctionState?.current_player_id) fetchBidHistory(auctionState.current_player_id);
+                // Use ref to avoid stale closure — always reads latest player ID
+                if (currentPlayerIdRef.current) fetchBidHistory(currentPlayerIdRef.current);
             })
             .subscribe();
 
         return () => { supabase.removeChannel(stateSub); };
-    }, [teamId, auctionState?.current_player_id]);
+    }, [teamId]);
 
     const formatPushp = (amount: number) => {
         const purple = getPurplePushp(amount);
         return `${amount.toLocaleString()} Pushp${purple ? ` (${purple} Purple)` : ''}`;
     };
 
-    const handleBid = async () => {
-        if (!teamId || isBidding || auctionState?.status !== 'BIDDING') return;
-
-        const nextBid = getNextBid(auctionState.current_highest_bid || 0);
-        if (mySquadCount >= MAX_SQUAD_SIZE || (myTeam?.remaining_budget || 0) < nextBid) return;
-
-        setIsBidding(true);
-        setError(null);
-
-        try {
-            const res = await fetch('/api/auction/v3/bid', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ team_id: teamId })
-            });
-
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || 'Bid failed');
-        } catch (err: any) {
-            setError(err.message);
-            setTimeout(() => setError(null), 3000);
-        } finally {
-            setIsBidding(false);
-        }
-    };
 
     if (!auctionState || auctionState.status === 'IDLE') {
         return (
@@ -145,43 +124,7 @@ export default function AuctionRoom({
                     )}
                 </AnimatePresence>
 
-                {!isAdmin && auctionState.status === 'BIDDING' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        {(() => {
-                            const nextBid = getNextBid(auctionState.current_highest_bid || 0);
-                            const isSquadFull = mySquadCount >= MAX_SQUAD_SIZE;
-                            const isInsufficient = (myTeam?.remaining_budget || 0) < nextBid;
-                            const isHighest = auctionState.highest_bid_team_id === teamId;
-                            const isDisabled = isSquadFull || isInsufficient || isHighest || isBidding;
 
-                            let label = `PLACE BID (${nextBid} P)`;
-                            if (isHighest) label = "YOU ARE HIGHEST";
-                            if (isInsufficient) label = "INSUFFICIENT PUSHP";
-                            if (isSquadFull) label = "SQUAD FULL (9/9)";
-
-                            return (
-                                <button
-                                    onClick={handleBid}
-                                    disabled={isDisabled}
-                                    style={{
-                                        width: '100%',
-                                        height: '70px',
-                                        borderRadius: '20px',
-                                        background: isDisabled ? 'rgba(255,255,255,0.05)' : 'var(--primary)',
-                                        color: isDisabled ? 'rgba(255,255,255,0.2)' : '#000',
-                                        fontWeight: 950,
-                                        fontSize: '1.5rem',
-                                        border: 'none',
-                                        cursor: isDisabled ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {isBidding ? <Activity className="animate-spin" /> : label}
-                                </button>
-                            );
-                        })()}
-                        {error && <div style={{ color: '#ff4b4b', fontSize: '0.8rem', textAlign: 'center', fontWeight: 800 }}>{error}</div>}
-                    </div>
-                )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

@@ -45,6 +45,32 @@ export async function POST(request: Request) {
 
         if (action === 'delete') {
             const { id } = player;
+
+            // Clear FK references in innings table before deleting
+            await supabaseAdmin.from('innings')
+                .update({ striker_id: null })
+                .eq('striker_id', id);
+            await supabaseAdmin.from('innings')
+                .update({ bowler_id: null })
+                .eq('bowler_id', id);
+
+            // Clear FK references in other related tables
+            await supabaseAdmin.from('match_events')
+                .update({ batsman_id: null })
+                .eq('batsman_id', id);
+            await supabaseAdmin.from('match_events')
+                .update({ bowler_id: null })
+                .eq('bowler_id', id);
+            await supabaseAdmin.from('player_match_stats')
+                .delete()
+                .eq('player_id', id);
+            await supabaseAdmin.from('match_players')
+                .delete()
+                .eq('player_id', id);
+            await supabaseAdmin.from('bids')
+                .delete()
+                .eq('player_id', id);
+
             const { error } = await supabaseAdmin.from('players').delete().eq('id', id);
             if (error) throw error;
             return NextResponse.json({ success: true });
