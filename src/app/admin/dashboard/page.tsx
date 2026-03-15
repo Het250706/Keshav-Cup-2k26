@@ -386,6 +386,31 @@ function AdminDashboardContent() {
                                 <p style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 800 }}>V3 Real-Time Bidding Panel</p>
                             </div>
                         </motion.div>
+
+                        {/* NEW: Big Screen Display Box */}
+                        <motion.div
+                            whileHover={{ scale: 1.02, translateY: -5 }}
+                            onClick={() => window.open('/auction/display', '_blank')}
+                            className="glass"
+                            style={{
+                                padding: '25px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '20px',
+                                background: 'rgba(0, 210, 255, 0.05)',
+                                border: '1px solid #00d2ff',
+                                boxShadow: '0 0 30px rgba(0, 210, 255, 0.1)'
+                            }}
+                        >
+                            <div style={{ background: '#00d2ff', padding: '15px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ExternalLink size={28} color="#000" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 950, marginBottom: '4px' }}>BIG SCREEN</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800 }}>Broadcast Display (IPL Style)</p>
+                            </div>
+                        </motion.div>
                     </div>
 
                     {/* SLOT MANAGEMENT DRAWER */}

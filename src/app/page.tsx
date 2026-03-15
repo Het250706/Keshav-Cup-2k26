@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Trophy, Shield, Users, Zap, ArrowRight, Star } from 'lucide-react';
+import { Trophy, Shield, Users, Zap, ArrowRight, Star, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function HomePage() {
@@ -133,6 +133,22 @@ export default function HomePage() {
                 ADMIN PORTAL
               </Link>
 
+              <Link href="/auction/display" target="_blank" className="btn-secondary" style={{
+                padding: '16px 32px',
+                fontSize: '1rem',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                background: 'linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, transparent 100%)',
+                border: '1px solid #00d2ff',
+                width: '240px'
+              }}>
+                <ExternalLink size={20} color="#00d2ff" />
+                BIG SCREEN
+              </Link>
+
               <a
                 href="https://docs.google.com/forms/d/e/1FAIpQLSd1wRv_ZB6pA8GAP3jBcdfOS9VG03c_gQeaSkSYl8kb6eR-iw/viewform"
                 target="_blank"
@@ -152,7 +168,7 @@ export default function HomePage() {
                 }}
               >
                 <Zap size={20} color="var(--primary)" />
-                PLAYER REGISTRATION
+                REGISTRATION
               </a>
             </motion.div>
 
