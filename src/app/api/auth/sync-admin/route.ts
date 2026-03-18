@@ -36,7 +36,7 @@ export async function POST(req: Request) {
                     
                     // 2. If exists, find ID and update password
                     const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
-                    const existingUser = usersData?.users.find((u: { email?: string; id: string }) => u.email?.toLowerCase() === email.toLowerCase());
+                    const existingUser = usersData?.users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
                     
                     if (existingUser) {
                         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
