@@ -22,12 +22,60 @@ export async function DELETE(request: Request) {
             .delete()
             .eq('player_id', playerId);
 
-        // 3. Get player info for photo cleanup and budget refund
+        // 3. Get player info for return-trip and budget refund
         const { data: player } = await supabaseAdmin
             .from('players')
-            .select('photo_url, auction_status, team_id, sold_price')
+            .select('*')
             .eq('id', playerId)
             .single();
+
+        if (player) {
+                // Fix photo URL for return trip
+                let restorePhoto = player.photo_url || '';
+                if (restorePhoto.includes('drive.google.com')) {
+                    const fileIdMatch = restorePhoto.match(/[-\w]{25,}/);
+                    if (fileIdMatch) {
+                        restorePhoto = `https://drive.google.com/uc?export=view&id=${fileIdMatch[0]}`;
+                    }
+                }
+
+                // Restore to registrations table: Update status if exists, otherwise Insert
+                const mobile = player.category || '';
+                const { data: existingReg } = await supabaseAdmin
+                    .from('registrations')
+                    .select('id')
+                    .eq('mobile', mobile)
+                    .maybeSingle();
+
+                let restoreError;
+                if (existingReg) {
+                    const { error } = await supabaseAdmin
+                        .from('registrations')
+                        .update({ is_pushed: false })
+                        .eq('id', existingReg.id);
+                    restoreError = error;
+                } else {
+                    const { error } = await supabaseAdmin
+                        .from('registrations')
+                        .insert([{
+                            name: `${player.first_name} ${player.last_name}`,
+                            role: player.role || 'All-rounder',
+                            base_price: player.base_price,
+                            mobile: mobile,
+                            age: Number(player.batting_style) || 20,
+                            city: player.was_present_kc3 || 'No',
+                            photo: restorePhoto,
+                            is_pushed: false
+                        }]);
+                    restoreError = error;
+                }
+            
+            if (restoreError) {
+                console.error('Failed to restore/update registration:', restoreError);
+            } else {
+                console.log(`Successfully restored ${player.first_name} to registrations`);
+            }
+        }
 
         // 4. Refund budget if sold
         if (player && player.auction_status === 'sold' && player.team_id && player.sold_price) {

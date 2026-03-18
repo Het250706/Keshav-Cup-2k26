@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Trophy, Users, Mail, Lock, AlertCircle, Loader2, Shield } from 'lucide-react';
+import { Zap, Users, Mail, Lock, AlertCircle, Loader2, Shield } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const CAPTAIN_PASSWORD = '12345678';
+const CAPTAIN_PASSWORD = '987654321';
 
 const TEAMS = [
     { name: 'SHAURYAM', email: 'shauryam@keshav.com' },
@@ -208,17 +208,18 @@ export default function CaptainLoginPage() {
                 }}>
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <div style={{
-                            background: 'linear-gradient(135deg, var(--primary) 0%, #ffa500 100%)',
-                            width: '80px',
-                            height: '80px',
-                            borderRadius: '20px',
+                            width: '100px',
+                            height: '100px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             margin: '0 auto 25px',
-                            boxShadow: '0 0 30px var(--primary-glow)'
                         }}>
-                            <Trophy size={40} color="#000" strokeWidth={2.5} />
+                            <img 
+                                src="/logo.png" 
+                                alt="Logo" 
+                                style={{ width: '100%', height: 'auto' }} 
+                            />
                         </div>
                         <h1 className="title-gradient" style={{ fontSize: '2.5rem', marginBottom: '12px', fontWeight: 900, letterSpacing: '-1px' }}>
                             CAPTAIN LOGIN
@@ -400,7 +401,7 @@ export default function CaptainLoginPage() {
                                 </>
                             ) : (
                                 <>
-                                    <Trophy size={20} />
+                                    <Zap size={20} />
                                     ENTER TEAM PORTAL
                                 </>
                             )}

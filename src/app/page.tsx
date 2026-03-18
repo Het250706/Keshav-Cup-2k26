@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Trophy, Shield, Users, Zap, ArrowRight, Star, ExternalLink } from 'lucide-react';
+import { Trophy, Shield, Users, Zap, ArrowRight, Star, ExternalLink, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function HomePage() {
@@ -37,23 +37,25 @@ export default function HomePage() {
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '900px', width: '100%' }}>
             {/* Logo */}
             <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ duration: 0.8, type: 'spring' }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1 }}
               style={{
-                width: 'clamp(80px, 15vw, 120px)',
-                height: 'clamp(80px, 15vw, 120px)',
-                margin: '0 auto 30px',
-                background: 'linear-gradient(135deg, var(--primary) 0%, #ffa500 100%)',
-                borderRadius: 'clamp(20px, 4vw, 30px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 0 60px var(--primary-glow)',
+                width: '100%',
+                maxWidth: '400px',
+                margin: '0 auto 40px',
                 position: 'relative'
               }}
             >
-              <Trophy size={48} color="#000" strokeWidth={2.5} />
+              <img 
+                src="/logo.png" 
+                alt="Keshav Cup 4.0" 
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.1))'
+                }}
+              />
             </motion.div>
 
             {/* Title */}
@@ -118,6 +120,23 @@ export default function HomePage() {
                 <ArrowRight size={18} />
               </Link>
 
+              <Link href="/register" className="btn-primary" style={{
+                padding: '16px 32px',
+                fontSize: '1rem',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                width: '240px',
+                background: 'linear-gradient(135deg, #00c853, #1b5e20)',
+                color: '#fff',
+                boxShadow: '0 4px 15px rgba(0, 200, 83, 0.3)'
+              }}>
+                <UserPlus size={20} />
+                REGISTRATION
+              </Link>
+
               <Link href="/admin/login" className="btn-secondary" style={{
                 padding: '16px 32px',
                 fontSize: '1rem',
@@ -132,44 +151,6 @@ export default function HomePage() {
                 <Shield size={20} />
                 ADMIN PORTAL
               </Link>
-
-              <Link href="/auction/display" target="_blank" className="btn-secondary" style={{
-                padding: '16px 32px',
-                fontSize: '1rem',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                background: 'linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, transparent 100%)',
-                border: '1px solid #00d2ff',
-                width: '240px'
-              }}>
-                <ExternalLink size={20} color="#00d2ff" />
-                BIG SCREEN
-              </Link>
-
-              <a
-                href="https://docs.google.com/forms/d/e/1FAIpQLSd1wRv_ZB6pA8GAP3jBcdfOS9VG03c_gQeaSkSYl8kb6eR-iw/viewform"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary"
-                style={{
-                  padding: '16px 32px',
-                  fontSize: '1rem',
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border)',
-                  width: '240px'
-                }}
-              >
-                <Zap size={20} color="var(--primary)" />
-                REGISTRATION
-              </a>
             </motion.div>
 
             {/* Features */}

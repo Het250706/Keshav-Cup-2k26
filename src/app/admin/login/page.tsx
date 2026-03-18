@@ -104,17 +104,18 @@ export default function AdminLoginPage() {
             }}>
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <div style={{
-                        background: 'var(--primary)',
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '20px',
+                        width: '100px',
+                        height: '100px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         margin: '0 auto 25px',
-                        boxShadow: '0 0 30px var(--primary-glow)'
                     }}>
-                        <Shield size={40} color="#000" strokeWidth={2.5} />
+                        <img 
+                            src="/logo.png" 
+                            alt="Logo" 
+                            style={{ width: '100%', height: 'auto' }} 
+                        />
                     </div>
                     <h1 className="title-gradient" style={{ fontSize: '2.5rem', marginBottom: '12px', fontWeight: 950, letterSpacing: '-1px' }}>
                         ADMIN LOGIN

@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 export async function loginTeam(teamName: string, password: string) {
     // In demo mode, we verify the specific password requested
-    if (password !== '12345678') {
+    if (password !== '987654321') {
         return { error: { message: 'Incorrect password for this team' } };
     }
 

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
-import { Trash2, X, Gavel, Users, UserPlus, Shield, LogOut, Zap, Shuffle, Download, Link as LinkIcon, ExternalLink, Settings, LayoutGrid, Hammer, RotateCcw } from 'lucide-react';
+import { Trash2, X, Gavel, Users, UserPlus, Shield, LogOut, Zap, Shuffle, Download, Link as LinkIcon, ExternalLink, Settings, LayoutGrid, Hammer, RotateCcw, PieChart, History as HistoryIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import RoleGuard from '@/components/RoleGuard';
@@ -20,8 +20,8 @@ export default function AdminDashboardPage() {
 }
 
 function AdminDashboardContent() {
-    const thStyle: React.CSSProperties = { padding: '15px', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' };
-    const tdStyle: React.CSSProperties = { padding: '15px', fontSize: '0.9rem' };
+    const thStyle: React.CSSProperties = { padding: '10px', color: '#888', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', whiteSpace: 'nowrap', textAlign: 'center' };
+    const tdStyle: React.CSSProperties = { padding: '10px', fontSize: '0.8rem', textAlign: 'center', color: '#ddd' };
 
     const [players, setPlayers] = useState<any[]>([]);
     const [teams, setTeams] = useState<any[]>([]);
@@ -35,17 +35,21 @@ function AdminDashboardContent() {
     const [reAuctionLoading, setReAuctionLoading] = useState(false);
     const router = useRouter();
 
+    const [registrationsCount, setRegistrationsCount] = useState(0);
+
     const fetchData = async () => {
         try {
-            const [playersRes, stateRes, teamsRes] = await Promise.all([
+            const [playersRes, stateRes, teamsRes, regRes] = await Promise.all([
                 supabase.from('players').select('*').order('created_at', { ascending: false }),
                 supabase.from('auction_state').select('*').single(),
-                supabase.from('teams').select('*').order('name')
+                supabase.from('teams').select('*').order('name'),
+                supabase.from('registrations').select('id', { count: 'exact', head: true }).eq('is_pushed', false)
             ]);
 
             if (playersRes.data) setPlayers(playersRes.data);
             if (stateRes.data) setAuctionState(stateRes.data);
             if (teamsRes.data) setTeams(teamsRes.data);
+            if (regRes.count !== null) setRegistrationsCount(regRes.count);
 
             if (stateRes.error && stateRes.error.code !== 'PGRST116') {
                 console.error('Auction State Error:', stateRes.error);
@@ -124,7 +128,7 @@ function AdminDashboardContent() {
 
     const drawRandom = async () => {
         // Filter players based on selected slot
-        const pool = selectedSlot === 'All' 
+        const pool = selectedSlot === 'All'
             ? players.filter(p => p.auction_status === 'pending')
             : players.filter(p => p.auction_status === 'pending' && p.category === selectedSlot);
 
@@ -167,20 +171,20 @@ function AdminDashboardContent() {
     const deleteSlot = async (slotName: string) => {
         if (slotName === 'Unassigned') return;
         if (!confirm(`🚨 Delete Slot "${slotName}"?\n\nThis will move all players in this slot back to "Unassigned".\nNo players will be deleted, only their category will be removed.`)) return;
-        
+
         setSyncing(true);
         try {
             const playersInSlot = players.filter(p => p.category === slotName);
-            
+
             // Update players in sequence (using manage API which uses admin key)
-            await Promise.all(playersInSlot.map(p => 
+            await Promise.all(playersInSlot.map(p =>
                 fetch('/api/players/manage', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'update', player: { id: p.id, category: 'Unassigned' } })
                 })
             ));
-            
+
             if (selectedSlot === slotName) setSelectedSlot('All');
             alert(`✅ Slot "${slotName}" removed successfully.`);
             fetchData();
@@ -298,7 +302,9 @@ function AdminDashboardContent() {
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px'
                                 }}>LIVE CONSOLE</span>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Total Registrations: <b style={{ color: '#fff' }}>{players.length}</b></p>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Players in Pool: <b style={{ color: '#fff' }}>{players.length}</b></p>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>•</p>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Pending: <b style={{ color: 'var(--primary)' }}>{registrationsCount}</b></p>
                             </div>
                         </div>
                     </div>
@@ -311,14 +317,14 @@ function AdminDashboardContent() {
                             whileHover={{ scale: 1.02, translateY: -5 }}
                             onClick={() => router.push('/admin/registrations')}
                             className="glass"
-                            style={{ padding: '25px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '20px' }}
+                            style={{ padding: '25px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid rgba(255,255,255,0.1)' }}
                         >
                             <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
-                                <Settings size={28} color="var(--primary)" />
+                                <UserPlus size={28} color="var(--primary)" />
                             </div>
                             <div>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>REGISTRATION CONTROL</h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Manage & Sync Registration Sheets</p>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>REGISTRATIONS</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{registrationsCount} Players Waiting</p>
                             </div>
                         </motion.div>
 
@@ -334,11 +340,11 @@ function AdminDashboardContent() {
                             </div>
                             <div>
                                 <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>LIVE SCORE</h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Create Matches & Manage Scores</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Manage Matches</p>
                             </div>
                         </motion.div>
 
-                        {/* NEW: Slot Management Box */}
+                        {/* Slot Management Box */}
                         <motion.div
                             whileHover={{ scale: 1.02, translateY: -5 }}
                             onClick={() => setShowSlotManager(!showSlotManager)}
@@ -354,15 +360,15 @@ function AdminDashboardContent() {
                             }}
                         >
                             <div style={{ background: '#38bdf8', padding: '15px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <LayoutGrid size={28} color="#000" />
+                                <Settings size={28} color="#000" />
                             </div>
                             <div>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>SLOT MANAGEMENT</h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Create & Assign Auction Slots</p>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '4px' }}>SLOTS</h3>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Configure Categories</p>
                             </div>
                         </motion.div>
 
-                        {/* NEW: V3 Auction Console Box */}
+                        {/* Auction Console Box */}
                         <motion.div
                             whileHover={{ scale: 1.02, translateY: -5 }}
                             onClick={() => router.push('/admin/auction')}
@@ -382,12 +388,12 @@ function AdminDashboardContent() {
                                 <Hammer size={28} color="#000" />
                             </div>
                             <div>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: 950, marginBottom: '4px' }}>AUCTION CONSOLE</h3>
-                                <p style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 800 }}>V3 Real-Time Bidding Panel</p>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 950, marginBottom: '4px' }}>LIVE AUCTION</h3>
+                                <p style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 800 }}>V3 Bidding Panel</p>
                             </div>
                         </motion.div>
 
-                        {/* NEW: Big Screen Display Box */}
+                        {/* Big Screen Display Box */}
                         <motion.div
                             whileHover={{ scale: 1.02, translateY: -5 }}
                             onClick={() => window.open('/auction/display', '_blank')}
@@ -408,7 +414,7 @@ function AdminDashboardContent() {
                             </div>
                             <div>
                                 <h3 style={{ fontSize: '1.2rem', fontWeight: 950, marginBottom: '4px' }}>BIG SCREEN</h3>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800 }}>Broadcast Display (IPL Style)</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 800 }}>Broadcast (IPL Style)</p>
                             </div>
                         </motion.div>
                     </div>
@@ -428,20 +434,20 @@ function AdminDashboardContent() {
                                             <LayoutGrid size={20} color="#38bdf8" /> CONFIGURE AUCTION SLOTS
                                         </h2>
                                         <div style={{ display: 'flex', gap: '10px' }}>
-                                            <input 
-                                                type="text" 
-                                                placeholder="New Slot Name..." 
-                                                value={newSlotName} 
+                                            <input
+                                                type="text"
+                                                placeholder="New Slot Name..."
+                                                value={newSlotName}
                                                 onChange={(e) => setNewSlotName(e.target.value)}
                                                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', color: '#fff', fontSize: '0.8rem' }}
                                             />
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     if (!newSlotName) return;
                                                     setNewSlotName('');
                                                     alert(`To add slot "${newSlotName}", assign a player to it using the pool table actions below.`);
                                                 }}
-                                                className="btn-secondary" 
+                                                className="btn-secondary"
                                                 style={{ fontSize: '0.7rem', padding: '0 15px' }}
                                             >+ CREATE SLOT</button>
                                         </div>
@@ -450,7 +456,7 @@ function AdminDashboardContent() {
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                                         {['All', ...Array.from(new Set(players.map(p => p.category || 'Unassigned')))].map(slot => (
                                             <div key={slot} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <button 
+                                                <button
                                                     onClick={() => setSelectedSlot(slot)}
                                                     style={{
                                                         padding: '10px 20px',
@@ -507,15 +513,16 @@ function AdminDashboardContent() {
                         <div className="glass" style={{ padding: '0', overflow: 'hidden' }}>
                             <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h2 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    </h2>
-                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        {selectedSlot !== 'All' && (
-                                            <div style={{ background: '#38bdf8', color: '#000', padding: '4px 12px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 950, textTransform: 'uppercase' }}>
-                                                ACTIVE SLOT: {selectedSlot}
-                                            </div>
-                                        )}
-                                        <button
-                                            onClick={async () => {
+                                    <Shield size={18} color="var(--primary)" /> PLAYER POOL
+                                </h2>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    {selectedSlot !== 'All' && (
+                                        <div style={{ background: '#38bdf8', color: '#000', padding: '4px 12px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 950, textTransform: 'uppercase' }}>
+                                            ACTIVE SLOT: {selectedSlot}
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={async () => {
                                             if (!confirm('🔄 RESTORE ALL PLAYERS from Google Sheet? This will re-import all registered players into the pool.')) return;
                                             setSyncing(true);
                                             try {
@@ -564,95 +571,97 @@ function AdminDashboardContent() {
                                     </button>
                                 </div>
                             </div>
-                            <div className="scrollable-table" style={{ maxHeight: 'calc(100vh - 250px)', overflowY: 'auto' }}>
+                            <div className="scrollable-table" style={{ maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
                                     <thead>
                                         <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                                            <th style={thStyle}>PHOTO</th>
-                                            <th style={thStyle}>FULL NAME</th>
-                                            <th style={thStyle}>ક્રિકેટ માં આપની આવડત કઈ ?</th>
-                                            <th style={thStyle}>KC3 (2025) REGISTERED?</th>
-                                            <th style={thStyle}>ACTION</th>
+                                            <th style={{ ...thStyle, width: '70px' }}>PHOTO</th>
+                                            <th style={{ ...thStyle, width: '150px', textAlign: 'left' }}>FULL NAME</th>
+                                            <th style={{ ...thStyle, width: '110px' }}>CRICKET SKILL</th>
+                                            <th style={{ ...thStyle, width: '100px' }}>KESHAV CUP </th>
+                                            <th style={{ ...thStyle, width: '120px' }}>SLOTS</th>
+                                            <th style={{ ...thStyle, width: '140px' }}>AUCTION</th>
+                                            <th style={{ ...thStyle, width: '60px' }}>DELETE</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {players.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                <td colSpan={7} style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                                     <Users size={32} style={{ opacity: 0.2, marginBottom: '10px' }} />
                                                     <div style={{ fontWeight: 700 }}>NO PLAYERS IN POOL</div>
                                                     <div style={{ fontSize: '0.75rem', marginTop: '5px' }}>Push some players from Registration Control.</div>
                                                 </td>
                                             </tr>
                                         ) : players.map((p) => (
-                                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', opacity: p.auction_status === 'sold' ? 0.6 : 1 }}>
+                                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row-hover">
                                                 <td style={tdStyle}>
-                                                    <motion.div
-                                                        whileHover={{ scale: 3.5, zIndex: 10, position: 'relative', boxShadow: '0 0 30px rgba(0, 255, 128, 0.5)' }}
-                                                        transition={{ type: 'spring', stiffness: 300 }}
-                                                        style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#222', overflow: 'hidden', cursor: 'zoom-in' }}
-                                                    >
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#222', overflow: 'hidden', margin: '0 auto', border: '1px solid rgba(255,255,255,0.1)' }}>
                                                         <img
-                                                            src={fixPhotoUrl(p.photo_url, p.first_name)}
+                                                            src={fixPhotoUrl(p.photo_url || p.photo, p.first_name)}
                                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                             alt=""
-                                                            referrerPolicy="no-referrer"
                                                             onError={(e) => {
                                                                 (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.first_name}`;
                                                             }}
                                                         />
-                                                    </motion.div>
+                                                    </div>
                                                 </td>
-                                                <td style={tdStyle}><div style={{ fontWeight: 800, fontSize: '1rem' }}>{p.first_name} {p.last_name}</div></td>
-                                                <td style={tdStyle}>{p.cricket_skill || 'N/A'}</td>
-                                                <td style={tdStyle}>{p.was_present_kc3 || 'N/A'}</td>
+                                                <td style={{ ...tdStyle, textAlign: 'left' }}>
+                                                    <div style={{ fontWeight: 800, color: '#fff' }}>{p.first_name} {p.last_name}</div>
+                                                </td>
                                                 <td style={tdStyle}>
-                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                        <select 
-                                                            value={p.category || 'Unassigned'} 
-                                                            onChange={(e) => updatePlayerSlot(p.id, e.target.value)}
-                                                            style={{ 
-                                                                background: '#000', 
-                                                                border: '1px solid rgba(255,255,255,0.2)', 
-                                                                color: '#fff', 
-                                                                fontSize: '0.7rem', 
-                                                                padding: '6px', 
-                                                                borderRadius: '6px',
-                                                                cursor: 'pointer',
-                                                                fontWeight: 700
-                                                            }}
-                                                        >
-                                                            {Array.from(new Set(players.map(pl => pl.category || 'Unassigned'))).map(c => (
-                                                                <option key={c} value={c} style={{ background: '#000', color: '#fff' }}>{c}</option>
-                                                            ))}
-                                                            <option value="+ New Slot" style={{ background: '#000', color: 'var(--primary)', fontWeight: 900 }}>+ New Slot</option>
-                                                        </select>
-
+                                                    <div style={{ fontWeight: 700 }}>{p.cricket_skill || p.role}</div>
+                                                </td>
+                                                <td style={tdStyle}>
+                                                    <div style={{ fontWeight: 900, color: (p.was_present_kc3 === 'હા' || p.was_present_kc3 === 'Yes') ? '#00ff80' : '#ff4b4b' }}>
+                                                        {(p.was_present_kc3 === 'હા' || p.was_present_kc3 === 'Yes') ? 'YES' : 'NO'}
+                                                    </div>
+                                                </td>
+                                                <td style={tdStyle}>
+                                                    <div style={{ fontWeight: 800, color: 'var(--primary)' }}>{p.category || 'Unassigned'}</div>
+                                                </td>
+                                                <td style={tdStyle}>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
                                                         {p.auction_status === 'sold' && (
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 900, color: '#00ff80', padding: '8px 15px' }}>SOLD</div>
+                                                            <div style={{ background: 'rgba(0, 255, 128, 0.1)', color: '#00ff80', padding: '6px 12px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 950 }}>SOLD</div>
                                                         )}
                                                         {p.auction_status === 'active' && (
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary)', padding: '8px 15px', background: 'rgba(255,215,0,0.1)', borderRadius: '8px', border: '1px solid var(--primary)', animation: 'pulse 1.5s infinite' }}>LIVE</div>
+                                                            <div style={{ background: 'rgba(255, 215, 0, 0.1)', color: 'var(--primary)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 950, border: '1px solid var(--primary)' }}>LIVE</div>
+                                                        )}
+                                                        {p.auction_status === 'unsold' && (
+                                                            <div style={{ background: 'rgba(255, 75, 75, 0.1)', color: '#ff4b4b', padding: '6px 12px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 950 }}>UNSOLD</div>
                                                         )}
                                                         {p.auction_status === 'pending' && (
-                                                            <button 
-                                                                onClick={() => controlAuction('start', p.id)} 
-                                                                className="btn-primary" 
-                                                                style={{ padding: '8px 15px', fontSize: '0.75rem', fontWeight: 900, borderRadius: '8px' }}
+                                                            <button
+                                                                onClick={() => controlAuction('start', p.id)}
+                                                                style={{
+                                                                    padding: '8px 16px',
+                                                                    borderRadius: '8px',
+                                                                    background: 'rgba(255, 215, 0, 0.1)',
+                                                                    border: '1px solid rgba(255, 215, 0, 0.3)',
+                                                                    color: 'var(--primary)',
+                                                                    fontWeight: 900,
+                                                                    fontSize: '0.65rem',
+                                                                    cursor: 'pointer',
+                                                                    textTransform: 'uppercase'
+                                                                }}
+                                                                className="push-btn"
                                                             >
                                                                 START AUCTION
                                                             </button>
                                                         )}
-                                                        {p.auction_status === 'unsold' && (
-                                                            <button onClick={() => controlAuction('start', p.id)} className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.75rem', fontWeight: 900, borderRadius: '8px', borderColor: '#ff4b4b', color: '#ff4b4b' }}>RE-AUCTION</button>
-                                                        )}
-                                                        <button onClick={async () => {
-                                                            if (confirm('Delete player?')) {
-                                                                const res = await fetch(`/api/admin/delete-player?id=${p.id}`, { method: 'DELETE' });
-                                                                if (res.ok) fetchData();
-                                                            }
-                                                        }} style={{ color: '#ff4b4b', opacity: 0.5, background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                                     </div>
+                                                </td>
+                                                <td style={tdStyle}>
+                                                    <button onClick={async () => {
+                                                        if (confirm('Delete player?')) {
+                                                            const res = await fetch(`/api/admin/delete-player?id=${p.id}`, { method: 'DELETE' });
+                                                            if (res.ok) fetchData();
+                                                        }
+                                                    }} style={{ color: '#ff4b4b', opacity: 0.5, background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                        <Trash2 size={16} />
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -666,9 +675,11 @@ function AdminDashboardContent() {
                                 padding: '25px',
                                 border: auctionState?.status === 'active' ? '2px solid var(--primary)' : '1px solid var(--border)',
                             }}>
-                                <h2 style={{ marginBottom: '20px', fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <Gavel size={20} color="var(--primary)" /> OFFICIAL CONSOLE
-                                </h2>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Gavel size={20} color="var(--primary)" /> OFFICIAL CONSOLE
+                                    </h2>
+                                </div>
 
                                 {auctionState && currentPlayer && (auctionState.status === 'BIDDING' || auctionState.status === 'active') ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -710,9 +721,9 @@ function AdminDashboardContent() {
                                             <div style={{ marginBottom: '20px' }}>
                                                 <div style={{ color: '#38bdf8', fontSize: '1.2rem', fontWeight: 950, marginBottom: '10px' }}>SLOT COMPLETED ✓</div>
                                                 <p style={{ fontSize: '0.8rem' }}>All players in <b>{selectedSlot}</b> have been auctioned.</p>
-                                                <button 
+                                                <button
                                                     onClick={() => setShowSlotManager(true)}
-                                                    className="btn-secondary" 
+                                                    className="btn-secondary"
                                                     style={{ marginTop: '20px', borderColor: '#38bdf8', color: '#38bdf8' }}
                                                 >MOVE TO NEXT SLOT</button>
                                             </div>
@@ -747,7 +758,7 @@ function AdminDashboardContent() {
                                         <div style={{ textAlign: 'center', padding: '20px', fontSize: '0.75rem', opacity: 0.5 }}>No Unsold Players</div>
                                     ) : (
                                         <>
-                                            <button 
+                                            <button
                                                 onClick={async () => {
                                                     const pool = players.filter(p => p.auction_status === 'unsold');
                                                     if (pool.length > 0) {
@@ -756,7 +767,7 @@ function AdminDashboardContent() {
                                                         setReAuctionLoading(false);
                                                     }
                                                 }}
-                                                className="btn-secondary" 
+                                                className="btn-secondary"
                                                 style={{ marginBottom: '10px', width: '100%', borderColor: '#ff4b4b', color: '#ff4b4b', fontWeight: 950 }}
                                             >
                                                 START RE-AUCTION ({players.filter(p => p.auction_status === 'unsold').length} LEFT)

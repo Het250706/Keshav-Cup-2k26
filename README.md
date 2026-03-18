@@ -1,37 +1,60 @@
-# Keshav-Cup-
-This Web App is for the Cricket real-time auction of the Keshav Cup 2026.
+# Keshav Cup 4.0 - Cricket Auction Web App
 
-## Getting Started
+## Overview
+A real-time cricket auction web app built for BAPS Petlad Yuva.
+Features player registration, live auction bidding, team management,
+and admin controls.
 
-First, run the development server:
+## Tech Stack
+- Next.js 14 (App Router)
+- Supabase (Database + Realtime + Storage)
+- Vercel (Deployment)
+- Tailwind CSS + Framer Motion
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+- Player Registration Form (/register)
+- Admin Registration Control
+- Live Auction Screen (Big Screen)
+- Captain Auction View (Read-only)
+- Player Pool Management
+- Team Squad Management
+- Analytics Dashboard
+- Google Sheets Integration (auto-sync on registration)
+
+## Environment Variables
+Create a .env.local file with:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your_service_account_email
+GOOGLE_PRIVATE_KEY="your_private_key"
+GOOGLE_SHEET_ID=your_google_sheet_id
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Getting Started
+```bash
+npm install
+npm run dev
+```
+Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Registration Flow
+1. Player visits /register
+2. Fills form with personal + cricket details
+3. Uploads photo (stored in Supabase Storage)
+4. Data saved to Supabase + Google Sheets automatically
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Auction Flow
+1. Admin pushes players from Registration Control to Player Pool
+2. Admin starts auction for each player
+3. Captains bid in real-time
+4. Admin marks player as Sold/Unsold
 
-## Learn More
+## Deployment
+Deployed on Vercel. Connect GitHub repo and add environment variables.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Important Notes
+- Never commit .env file to GitHub
+- Google Service Account JSON key must be kept private
+- Supabase Service Role Key must be kept private

@@ -1,55 +1,73 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { migrateDriveImageToSupabase } from '@/lib/drive-to-supabase';
 
 export const dynamic = 'force-dynamic';
+
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { player } = body;
 
-        if (!player) {
+        if (!player || !player.id) {
             return NextResponse.json({ error: 'No player data provided' }, { status: 400 });
         }
 
-        // Migrate image if it's from Google Drive
-        const migratingName = `${player.first_name}_${player.last_name}`;
-        const finalPhotoUrl = await migrateDriveImageToSupabase(player.photo_url || '', migratingName);
+        // Split name into first and last name
+        const nameParts = player.name?.split(' ') || ['Unknown', 'Player'];
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ') || 'Player';
 
-        // Use SERVICE ROLE KEY to bypass RLS and ensure the push works
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        // Fix photo URL if it's a Google Drive link
+        let finalPhoto = player.photo || player.photo_url || '';
+        if (finalPhoto.includes('drive.google.com')) {
+            const fileIdMatch = finalPhoto.match(/[-\w]{25,}/);
+            if (fileIdMatch) {
+                finalPhoto = `https://lh3.googleusercontent.com/d/${fileIdMatch[0]}`;
+            }
+        }
 
-        // Standardize the push
-        const { data, error } = await supabaseAdmin
+        // 1. Insert into "players" table
+        const { data: insertedData, error: insertError } = await supabaseAdmin
             .from('players')
             .insert([{
-                first_name: player.first_name,
-                last_name: player.last_name,
-                cricket_skill: player.cricket_skill || 'N/A',
-                was_present_kc3: player.was_present_kc3 || 'No',
-                photo_url: finalPhotoUrl,
-                base_price: player.base_price || 20000000,
-                category: player.category || 'Silver',
+                first_name: firstName,
+                last_name: lastName,
+                cricket_skill: player.role || 'All-rounder',
                 role: player.role || 'All-rounder',
-                auction_status: 'pending'
+                category: player.occupation || 'Unassigned', 
+                batting_style: player.age?.toString() || '20',
+                base_price: player.base_price || 20000000,
+                photo_url: finalPhoto,
+                auction_status: 'pending',
+                was_present_kc3: player.city || player.was_present_kc3 || 'No'
             }])
             .select();
 
-        if (error) {
-            console.error('API Push Player Error:', error);
-            return NextResponse.json({
-                error: error.message,
-                details: error.details,
-                hint: error.hint,
-                code: error.code
-            }, { status: 500 });
+        if (insertError) {
+            console.error('Push to Player Pool Error:', insertError);
+            return NextResponse.json({ error: insertError.message }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, data: data[0] });
+        // 2. Mark as pushed in "registrations" table instead of deleting
+        const { error: updateError } = await supabaseAdmin
+            .from('registrations')
+            .update({ is_pushed: true })
+            .eq('id', player.id);
+
+        if (updateError) {
+            console.warn('Player pushed but failed to update status in registrations:', updateError);
+        }
+
+        return NextResponse.json({ 
+            success: true, 
+            message: 'Player moved to pool successfully',
+            data: insertedData[0]
+        });
 
     } catch (err: any) {
         console.error('API Push Player Catch:', err);

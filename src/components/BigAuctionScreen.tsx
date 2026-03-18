@@ -41,6 +41,7 @@ export default function BigAuctionScreen() {
   const prevBidRef = useRef<number>(0);
   const prevStatusRef = useRef<string>('IDLE');
   const currentPlayerRef = useRef<Player | null>(null);
+  const autoDismissRef = useRef<NodeJS.Timeout | null>(null);
   
   // Audio Refs
   const bidSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -80,8 +81,26 @@ export default function BigAuctionScreen() {
 
     return () => {
       supabase.removeChannel(channel);
+      if (autoDismissRef.current) clearTimeout(autoDismissRef.current);
     };
   }, []); // Run once on mount
+
+  // Auto-dismiss SOLD state after 4 seconds
+  useEffect(() => {
+    if (auctionState?.status === 'SOLD') {
+      if (autoDismissRef.current) clearTimeout(autoDismissRef.current);
+      autoDismissRef.current = setTimeout(() => {
+        // Local reset to prepare for next player
+        setAuctionState(prev => prev ? { ...prev, status: 'IDLE' } : null);
+        setCurrentPlayer(null);
+        setLeadingTeam(null);
+        autoDismissRef.current = null;
+      }, 4000);
+    }
+    return () => {
+      if (autoDismissRef.current) clearTimeout(autoDismissRef.current);
+    };
+  }, [auctionState?.status]);
 
   const fetchInitialData = async () => {
     try {
@@ -247,7 +266,8 @@ export default function BigAuctionScreen() {
                     <div className="relative">
                       <motion.div
                         whileHover={{ scale: 1.05 }}
-                        className="w-80 h-80 rounded-full border-8 border-yellow-500/50 p-2 relative z-10 overflow-hidden shadow-[0_0_50px_rgba(234,179,8,0.2)]"
+                        className="rounded-full border-[1vw] border-yellow-500/50 p-2 relative z-10 overflow-hidden shadow-[0_0_50px_rgba(234,179,8,0.2)]"
+                        style={{ width: 'clamp(350px, 25vw, 500px)', height: 'clamp(350px, 25vw, 500px)' }}
                       >
                         <img 
                           src={fixPhotoUrl(currentPlayer.photo_url, currentPlayer.first_name)} 
@@ -257,11 +277,23 @@ export default function BigAuctionScreen() {
                             (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentPlayer.first_name}`;
                           }}
                         />
+
+                        {/* Arpanam Stamp - STEP 1 */}
+                        <AnimatePresence>
+                          {auctionState?.status === 'SOLD' && (
+                            <motion.img
+                              key="stamp"
+                              initial={{ scale: 0, rotate: -30, opacity: 0 }}
+                              animate={{ scale: 1, rotate: -15, opacity: 0.9 }}
+                              exit={{ opacity: 0, scale: 0.5 }}
+                              transition={{ type: 'spring', damping: 12, stiffness: 100, duration: 0.5 }}
+                              src="/arpanam-stamp.png"
+                              className="absolute inset-0 m-auto z-20 pointer-events-none"
+                              style={{ width: '60%', height: 'auto', filter: 'drop-shadow(0 0 20px rgba(0,0,0,0.5))' }}
+                            />
+                          )}
+                        </AnimatePresence>
                       </motion.div>
-                      {/* Category Badge */}
-                      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 bg-yellow-500 text-black px-6 py-2 rounded-full font-black text-xl shadow-xl whitespace-nowrap">
-                        {currentPlayer.cricket_skill?.toUpperCase() || 'PLAYER'}
-                      </div>
                     </div>
 
                     {/* Player Info */}
@@ -271,7 +303,8 @@ export default function BigAuctionScreen() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.2 }}
-                          className="text-4xl font-bold text-yellow-500/80 tracking-tight"
+                          className="font-bold text-slate-400"
+                          style={{ fontSize: 'clamp(2.5rem, 5vw, 7rem)', lineHeight: 1 }}
                         >
                           {currentPlayer.first_name.toUpperCase()}
                         </motion.h3>
@@ -279,23 +312,28 @@ export default function BigAuctionScreen() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.3 }}
-                          className="text-8xl font-black leading-tight tracking-tighter"
+                          className="font-black leading-none tracking-tighter text-white"
+                          style={{ fontSize: 'clamp(4rem, 8vw, 12rem)' }}
                         >
                           {currentPlayer.last_name.toUpperCase()}
                         </motion.h2>
                       </div>
 
-                      <div className="flex flex-wrap gap-4 mt-8">
-                        <div className="bg-white/5 border border-white/10 px-6 py-4 rounded-2xl">
-                          <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-1">Base Price</p>
-                          <p className="text-3xl font-black text-white">
-                            {currentPlayer.base_price?.toLocaleString()} <span className="text-yellow-500 text-lg">Pushp</span>
+                      <div className="flex flex-wrap gap-[2vw] mt-[5vh]">
+                        <div className="bg-white/5 border border-white/10 px-[2.5vw] py-[2.5vh] rounded-[2.5rem] min-w-[30%]">
+                          <p className="text-slate-400 font-bold uppercase tracking-widest mb-[1vh]" style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.5rem)' }}>Base Price</p>
+                          <p className="font-black text-white" style={{ fontSize: 'clamp(1.5rem, 3vw, 3rem)' }}>
+                            {currentPlayer.base_price?.toLocaleString()} <span className="text-yellow-500" style={{ fontSize: 'clamp(1rem, 2vw, 2rem)' }}>Pushp</span>
                           </p>
                         </div>
+                        <div className="bg-white/5 border border-white/10 px-[2.5vw] py-[2.5vh] rounded-[2.5rem] min-w-[30%]">
+                          <p className="text-slate-400 font-bold uppercase tracking-widest mb-[1vh]" style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.5rem)' }}>CRICKET SKILL</p>
+                          <p className="font-black text-white" style={{ fontSize: 'clamp(1.5rem, 3vw, 3rem)' }}>{currentPlayer.cricket_skill?.toUpperCase()}</p>
+                        </div>
                         {currentPlayer.was_present_kc3 && (
-                          <div className="bg-white/5 border border-white/10 px-6 py-4 rounded-2xl">
-                            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-1">Prev Performance</p>
-                            <p className="text-2xl font-black text-white">{currentPlayer.was_present_kc3}</p>
+                          <div className="bg-white/5 border border-white/10 px-[2.5vw] py-[2.5vh] rounded-[2.5rem] min-w-[30%]">
+                            <p className="text-slate-400 font-bold uppercase tracking-widest mb-[1vh]" style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.5rem)' }}>LAST KC3 STATUS</p>
+                            <p className="font-black text-white" style={{ fontSize: 'clamp(1.5rem, 3vw, 3rem)' }}>{currentPlayer.was_present_kc3}</p>
                           </div>
                         )}
                       </div>
@@ -344,7 +382,7 @@ export default function BigAuctionScreen() {
               </motion.div>
             )}
             
-            <p className="text-yellow-500 font-black text-2xl tracking-[0.2em] uppercase mb-4 drop-shadow-md">
+            <p className="text-yellow-500 font-black tracking-[0.2em] uppercase mb-[2vh] drop-shadow-md" style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.5rem)' }}>
               Current Highest Bid
             </p>
             
@@ -352,26 +390,26 @@ export default function BigAuctionScreen() {
               key={auctionState?.current_highest_bid}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="relative"
+              className="relative flex items-baseline gap-[1vw]"
             >
-              <span className="text-[10rem] font-black leading-none tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+              <span className="font-black leading-none tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]" style={{ fontSize: 'clamp(5rem, 10vw, 15rem)' }}>
                 {auctionState?.current_highest_bid?.toLocaleString() || '0'}
               </span>
-              <span className="text-4xl font-bold text-yellow-500 ml-4">Pushp</span>
+              <span className="font-bold text-yellow-500" style={{ fontSize: 'clamp(1.5rem, 3vw, 4rem)' }}>Pushp</span>
             </motion.div>
 
             {leadingTeam ? (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-8 flex items-center gap-4 bg-white/10 rounded-2xl p-6 border border-white/10"
+                className="mt-[4vh] flex items-center gap-[2vw] bg-white/10 rounded-[2rem] p-[2vw] border border-white/10"
               >
-                <div className="h-14 w-14 bg-white/10 rounded-full flex items-center justify-center">
-                  <Users className="text-yellow-500" size={28} />
+                <div className="h-[5vw] w-[5vw] min-h-[50px] min-w-[50px] bg-white/10 rounded-full flex items-center justify-center">
+                  <Users className="text-yellow-500 w-[60%] h-[60%]" />
                 </div>
                 <div>
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Leading Team</p>
-                  <p className="text-4xl font-black text-white">{leadingTeam.name.toUpperCase()}</p>
+                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em]" style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.5rem)' }}>Leading Team</p>
+                  <p className="font-black text-white leading-tight" style={{ fontSize: 'clamp(3rem, 6vw, 8rem)' }}>{leadingTeam.name.toUpperCase()}</p>
                 </div>
               </motion.div>
             ) : (
@@ -383,15 +421,15 @@ export default function BigAuctionScreen() {
 
           {/* Auction Status Indicator */}
           <div className="grid grid-cols-2 gap-6">
-            <div className={`rounded-3xl p-6 border flex flex-col items-center justify-center transition-all duration-500 ${auctionState?.status === 'BIDDING' ? 'bg-green-500/20 border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.2)]' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className={`p-2 rounded-full mb-3 ${auctionState?.status === 'BIDDING' ? 'bg-green-500 animate-pulse' : 'bg-slate-700'}`}></div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Status</p>
-              <p className="text-2xl font-black">{auctionState?.status || 'IDLE'}</p>
+            <div className={`rounded-3xl p-8 border flex flex-col items-center justify-center transition-all duration-500 ${auctionState?.status === 'BIDDING' ? 'bg-green-500/20 border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.2)]' : 'bg-slate-900/50 border-white/10'}`}>
+              <div className={`p-3 rounded-full mb-3 ${auctionState?.status === 'BIDDING' ? 'bg-green-500 animate-pulse' : 'bg-slate-700'}`}></div>
+              <p className="font-bold uppercase tracking-widest text-slate-400" style={{ fontSize: 'clamp(0.8rem, 1.2vw, 1.2rem)' }}>Status</p>
+              <p className="font-black" style={{ fontSize: 'clamp(1.5rem, 3vw, 3.5rem)' }}>{auctionState?.status || 'IDLE'}</p>
             </div>
             
-            <div className="bg-slate-900/50 rounded-3xl p-6 border border-white/10 flex flex-col items-center justify-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Involved Teams</p>
-              <p className="text-3xl font-black text-white">ALL</p>
+            <div className="bg-slate-900/50 rounded-3xl p-8 border border-white/10 flex flex-col items-center justify-center">
+              <p className="font-bold uppercase tracking-widest text-slate-400 mb-1" style={{ fontSize: 'clamp(0.8rem, 1.2vw, 1.2rem)' }}>Involved Teams</p>
+              <p className="font-black text-white" style={{ fontSize: 'clamp(1.5rem, 4vw, 4.5rem)' }}>ALL</p>
             </div>
           </div>
         </div>
@@ -462,52 +500,50 @@ export default function BigAuctionScreen() {
         </div>
       </footer>
 
-      {/* SOLD BANNER OVERLAY */}
+      {/* SOLD BANNER OVERLAY - STEP 2 & 3 */}
       <AnimatePresence>
         {auctionState?.status === 'SOLD' && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-8"
+            exit={{ opacity: 0, transition: { duration: 1 } }}
+            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-8 pointer-events-none"
           >
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="text-center space-y-12"
+              initial={{ scale: 0.8, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, transition: { duration: 0.5 } }}
+              transition={{ delay: 0.5, type: 'spring', damping: 15 }}
+              className="bg-[#00ff80]/10 border-4 border-[#00ff80] rounded-[40px] p-12 text-center shadow-[0_0_100px_rgba(0,255,128,0.3)] backdrop-blur-xl relative overflow-hidden"
+              style={{ minWidth: '700px' }}
             >
-              <div className="space-y-2">
-                <h2 className="text-[12rem] font-black leading-none text-[#00ff80] drop-shadow-[0_0_50px_rgba(34,197,94,0.5)] uppercase italic">
-                  SOLD
-                </h2>
-                <div className="h-2 w-full bg-gradient-to-r from-transparent via-[#00ff80] to-transparent"></div>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-6xl font-black text-white">
-                  {currentPlayer?.first_name?.toUpperCase()} {currentPlayer?.last_name?.toUpperCase()}
-                </p>
-                <div className="flex flex-col items-center gap-2">
-                   <p className="text-2xl font-black text-slate-400 tracking-[0.3em]">ACQUIRED BY</p>
-                   <p className="text-8xl font-black text-yellow-500 tracking-tighter drop-shadow-[0_0_30px_rgba(234,179,8,0.3)]">
-                     {leadingTeam?.name?.toUpperCase() || 'TEAM'}
-                   </p>
-                </div>
-                <div className="inline-block bg-white/5 px-12 py-4 rounded-3xl border border-white/10">
-                  <p className="text-4xl font-black text-white">
-                    {auctionState?.current_highest_bid?.toLocaleString()} <span className="text-yellow-500 text-xl">PUSHP</span>
-                  </p>
-                </div>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-[#00ff80]/10 to-transparent"></div>
               
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setAuctionState(prev => prev ? {...prev, status: 'IDLE'} : null)}
-                className="px-12 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full font-bold tracking-widest text-slate-400 transition-colors"
-              >
-                DISMISS
-              </motion.button>
+              <div className="relative z-10 space-y-10">
+                 <h2 className="text-8xl font-black text-[#00ff80] drop-shadow-lg italic flex items-center justify-center gap-6">
+                   🔨 SOLD!
+                 </h2>
+                 
+                 <div className="space-y-3">
+                    <p className="font-black text-white tracking-tighter" style={{ fontSize: 'clamp(3rem, 6vw, 8rem)' }}>
+                      {currentPlayer?.first_name?.toUpperCase()} {currentPlayer?.last_name?.toUpperCase()}
+                    </p>
+                    <div className="h-1.5 w-32 bg-[#00ff80] mx-auto rounded-full"></div>
+                 </div>
+
+                 <div className="space-y-1">
+                    <p className="text-2xl font-bold text-slate-400 tracking-[0.3em] uppercase">ACQUIRED BY</p>
+                    <p className="font-black text-yellow-500 tracking-tight drop-shadow-md" style={{ fontSize: 'clamp(4rem, 8vw, 10rem)' }}>
+                      {leadingTeam?.name?.toUpperCase() || 'TEAM'}
+                    </p>
+                 </div>
+
+                 <div className="inline-block bg-[#00ff80]/20 px-16 py-6 rounded-[3rem] border border-[#00ff80]/40 shadow-inner">
+                    <p className="font-black text-white" style={{ fontSize: 'clamp(3rem, 5vw, 6rem)' }}>
+                      FOR {auctionState?.current_highest_bid?.toLocaleString()} <span className="text-yellow-500 text-3xl">PUSHP</span>
+                    </p>
+                 </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -585,6 +621,11 @@ export default function BigAuctionScreen() {
 
         .animate-marquee-fast {
           animation: marquee-fast 30s linear infinite;
+        }
+
+        @media (min-width: 1920px) {
+          html { font-size: 1.25vw; }
+          .max-w-4xl { max-width: 80vw; }
         }
 
         .hover\:pause:hover {

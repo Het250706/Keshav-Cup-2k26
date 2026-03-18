@@ -10,32 +10,22 @@ export function fixPhotoUrl(url: string | null | undefined, name: string = 'play
         return url;
     }
 
-    // 2. Handle Google Drive URLs
-    if (lowerUrl.includes('drive.google.com') ||
-        lowerUrl.includes('docs.google.com/uc') ||
-        lowerUrl.includes('lh3.googleusercontent.com') ||
-        lowerUrl.includes('googleusercontent.com/d/')) {
+    // 2. Handle Google Drive and UserContent - wrap in proxy
+    if (lowerUrl.includes('lh3.googleusercontent.com') ||
+        lowerUrl.includes('googleusercontent.com') ||
+        lowerUrl.includes('drive.google.com') ||
+        lowerUrl.includes('docs.google.com')) {
 
-        let driveId = '';
-
-        // Pattern match for ID
-        if (url.includes('id=')) {
-            driveId = url.split('id=')[1].split('&')[0];
-        } else if (url.includes('/d/')) {
-            const parts = url.split('/d/');
-            if (parts.length > 1) {
-                driveId = parts[1].split('/')[0].split('?')[0].split('=')[0];
-            }
-        } else if (url.includes('open?id=')) {
-            driveId = url.split('open?id=')[1].split('&')[0];
+        // Extract ID and normalize to the canonical format if it's a Drive link
+        const fileIdMatch = url.match(/[-\w]{25,}/);
+        let finalUrl = url;
+        if (fileIdMatch && (lowerUrl.includes('drive.google.com') || lowerUrl.includes('docs.google.com'))) {
+            finalUrl = `https://lh3.googleusercontent.com/d/${fileIdMatch[0]}`;
         }
 
-        if (driveId) {
-            // The /uc?export=view&id= format is the most widely supported for direct embedding
-            return `https://docs.google.com/uc?export=view&id=${driveId}`;
-        }
+        return `/api/proxy-image?url=${encodeURIComponent(finalUrl)}`;
     }
 
-    // 3. Fallback for mixed protocols or direct images
+    // 3. Fallback for other images
     return url;
 }

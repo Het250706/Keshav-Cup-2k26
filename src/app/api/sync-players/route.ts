@@ -9,12 +9,11 @@ const supabaseAdmin = createClient(
 );
 
 export async function GET() {
-    console.log('--- SYNC SHEET CALLED ---');
+    console.log('--- SYNC PLAYERS CALLED ---');
     try {
         const sheetId = process.env.GOOGLE_SHEET_ID || '1ZHD222skktQspk97xv-s5T2uUa09t7SOIGmxtaICUHA';
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
-        console.log('Fetching from URL:', url);
         const response = await fetch(url, { cache: 'no-store' });
         const text = await response.text();
         
@@ -29,7 +28,6 @@ export async function GET() {
 
         let syncedCount = 0;
         let updatedCount = 0;
-        let poolExistsCount = 0;
 
         for (const row of rows) {
             const c = row.c;
@@ -40,8 +38,8 @@ export async function GET() {
                 return c[i].f || c[i].v || '';
             };
 
-            // USER MAPPING:
-            // 2: Full Name, 3: Mo. no., 6: Photo, 7: Participation, 8: Skill, 9: Birth Date
+            // MAPPING (Based on user request)
+            // 2: Full Name, 3: Mobile (Unique Key), 6: Photo, 7: Participation, 8: Skill, 9: Birth Date
             const fullName = String(getValue(2)).trim();
             const mobile = String(getValue(3)).trim();
             const photoUrl = String(getValue(6));
@@ -51,70 +49,58 @@ export async function GET() {
 
             if (!fullName || fullName === 'Full Name:' || !mobile) continue;
 
-            // Age Calculation
-            let age = 20;
-            if (birthStr.startsWith('Date(')) {
-                const matchAge = birthStr.match(/Date\((\d+),/);
-                if (matchAge) age = 2026 - parseInt(matchAge[1]);
-            }
-
-            // NEW ROBUST GOOGLE DRIVE CONVERSION
+            // 1. Convert Google Drive photo link using Regex
             let finalPhoto = photoUrl;
             if (photoUrl.includes('drive.google.com') || photoUrl.includes('googleusercontent.com')) {
                 const fileIdMatch = photoUrl.match(/[-\w]{25,}/);
                 if (fileIdMatch) {
-                    finalPhoto = `https://drive.google.com/uc?export=view&id=${fileIdMatch[0]}`;
+                    finalPhoto = `https://lh3.googleusercontent.com/d/${fileIdMatch[0]}`;
                 }
             }
 
-            // Check if already in Player Pool (players table) - If so, we ignore it to avoid confusion
-            const { data: inPool } = await supabaseAdmin.from('players').select('id').eq('phone', mobile).maybeSingle();
-            if (inPool) {
-                poolExistsCount++;
-                continue;
-            }
-
-            // Check if already in Registration Control (registrations table)
+            // 2. CHECK & SYNC - DUAL TABLE UPSERT (REGISTRATIONS + PLAYERS)
+            
+            // --- REGISTRATIONS TABLE (FOR CONTROL VIEW) ---
             const { data: existingReg } = await supabaseAdmin
                 .from('registrations')
-                .select('id')
+                .select('id, is_pushed')
                 .or(`mobile.eq."${mobile}",name.eq."${fullName}"`)
+                .maybeSingle();
+
+            // Check if player already exists in the POOL (players table)
+            const firstName = fullName.split(' ')[0] || '';
+            const lastName = fullName.split(' ').slice(1).join(' ') || '';
+            const { data: inPool } = await supabaseAdmin
+                .from('players')
+                .select('id')
+                .or(`category.eq."${mobile}",and(first_name.eq."${firstName}",last_name.eq."${lastName}")`)
                 .maybeSingle();
 
             const regData = {
                 name: fullName,
                 mobile: mobile,
-                age: age,
+                age: 20,
                 role: skill || 'All-rounder',
-                city: participation || 'No', // Storing participation in city column
+                city: participation || 'No',
                 photo: finalPhoto,
-                base_price: 20000000 // Default 0.20 Cr
+                base_price: 20000000,
+                is_pushed: !!inPool // If they are in the pool table, mark them as pushed in registrations
             };
 
             if (existingReg) {
-                // Update Existing
-                const { error: updateError } = await supabaseAdmin
-                    .from('registrations')
-                    .update(regData)
-                    .eq('id', existingReg.id);
-                
-                if (!updateError) updatedCount++;
+                await supabaseAdmin.from('registrations').update(regData).eq('id', existingReg.id);
+                updatedCount++;
             } else {
-                // Insert New
-                const { error: insertError } = await supabaseAdmin
-                    .from('registrations')
-                    .insert([regData]);
-                
-                if (!insertError) syncedCount++;
+                await supabaseAdmin.from('registrations').insert([regData]);
+                syncedCount++;
             }
         }
 
         return NextResponse.json({ 
             success: true, 
-            message: `Sync complete. New: ${syncedCount}, Updated: ${updatedCount}, Already in Pool: ${poolExistsCount}`,
+            message: `Sync complete. New: ${syncedCount}, Updated: ${updatedCount}`,
             synced: syncedCount,
-            updated: updatedCount,
-            inPool: poolExistsCount
+            updated: updatedCount
         });
 
     } catch (err: any) {
