@@ -2,8 +2,8 @@
 
 import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Camera, Upload, CheckCircle2, AlertCircle, Loader2, RefreshCw, RotateCcw } from 'lucide-react';
 
 export default function PublicRegistrationPage() {
     const [formData, setFormData] = useState({
@@ -24,7 +24,10 @@ export default function PublicRegistrationPage() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    
     const [useCamera, setUseCamera] = useState(false);
+    const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+    const [stream, setStream] = useState<MediaStream | null>(null);
     
     const videoRef = useRef<HTMLVideoElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,18 +60,48 @@ export default function PublicRegistrationPage() {
         if (file) {
             setPhotoFile(file);
             setPhotoPreview(URL.createObjectURL(file));
-            setUseCamera(false);
         }
     };
 
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            if (videoRef.current) videoRef.current.srcObject = stream;
-            setUseCamera(true);
-        } catch (err) {
-            alert('Camera access denied');
+    const startCamera = async (facing: 'environment' | 'user' = 'environment') => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
         }
+        
+        try {
+            const constraints = {
+                video: { 
+                    facingMode: facing,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            setStream(newStream);
+            setFacingMode(facing);
+            setUseCamera(true);
+            setPhotoPreview(null);
+            
+            if (videoRef.current) {
+                videoRef.current.srcObject = newStream;
+            }
+        } catch (err) {
+            console.error('Camera error:', err);
+            alert('Camera access denied or not available');
+        }
+    };
+
+    const stopCamera = () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        setStream(null);
+        setUseCamera(false);
+    };
+
+    const switchCamera = () => {
+        const newMode = facingMode === 'environment' ? 'user' : 'environment';
+        startCamera(newMode);
     };
 
     const capturePhoto = () => {
@@ -77,16 +110,22 @@ export default function PublicRegistrationPage() {
         canvas.width = videoRef.current.videoWidth;
         canvas.height = videoRef.current.videoHeight;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(videoRef.current, 0, 0);
+        if (!ctx) return;
+
+        if (facingMode === 'user') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        
+        ctx.drawImage(videoRef.current, 0, 0);
+        
         canvas.toBlob((blob) => {
             if (blob) {
                 setPhotoFile(blob);
                 setPhotoPreview(URL.createObjectURL(blob));
-                setUseCamera(false);
-                const tracks = (videoRef.current?.srcObject as MediaStream)?.getTracks();
-                tracks?.forEach(t => t.stop());
+                stopCamera();
             }
-        }, 'image/jpeg', 0.8);
+        }, 'image/jpeg', 0.9);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -270,28 +309,48 @@ export default function PublicRegistrationPage() {
                         <label className="q-label">Your Photo (Half body Portrait photo) *</label>
                         <p className="photo-hint">Upload 1 supported file. Max 10 MB.</p>
                         
-                        <div className="btn-upload-container">
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-upload">
-                                <Upload size={18} /> Upload File
-                            </button>
-                            <button type="button" onClick={startCamera} className="btn-upload">
-                                <Camera size={18} /> Take Photo
-                            </button>
-                            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
-                        </div>
+                        {!useCamera && (
+                            <div className="btn-upload-container">
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-upload">
+                                    <Upload size={18} /> Upload File
+                                </button>
+                                <button type="button" onClick={() => startCamera('environment')} className="btn-upload">
+                                    <Camera size={18} /> Take Photo
+                                </button>
+                                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
+                            </div>
+                        )}
 
-                        <AnimatePresence>
-                            {useCamera && (
-                                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} style={{ overflow: 'hidden' }}>
-                                    <video ref={videoRef} autoPlay playsInline style={{ width: '100%', borderRadius: '8px', background: '#000' }} />
-                                    <button type="button" onClick={capturePhoto} className="btn-capture">Capture & Save</button>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        {useCamera && (
+                            <div className="camera-overlay">
+                                <div className="video-container">
+                                    <video 
+                                        ref={videoRef} 
+                                        autoPlay 
+                                        playsInline 
+                                        className={facingMode === 'user' ? 'mirrored' : ''}
+                                    />
+                                </div>
+                                <div className="camera-controls">
+                                    <button type="button" onClick={stopCamera} className="btn-cam-action">Cancel</button>
+                                    <button type="button" onClick={capturePhoto} className="btn-cam-capture">
+                                        <div className="capture-inner" />
+                                    </button>
+                                    <button type="button" onClick={switchCamera} className="btn-cam-action">
+                                        <RefreshCw size={24} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
-                        {photoPreview && (
-                            <div className="photo-preview-container">
-                                <img src={photoPreview} alt="Preview" className="photo-preview-img" />
+                        {photoPreview && !useCamera && (
+                            <div className="photo-preview-section">
+                                <div className="photo-preview-container">
+                                    <img src={photoPreview} alt="Preview" className="photo-preview-img" />
+                                </div>
+                                <button type="button" onClick={() => startCamera('environment')} className="btn-retake">
+                                    <RotateCcw size={16} /> Retake Photo
+                                </button>
                             </div>
                         )}
                         {errors.photo && <span className="error-msg" style={{ marginTop: '10px' }}><AlertCircle size={14} /> {errors.photo}</span>}
@@ -461,24 +520,74 @@ export default function PublicRegistrationPage() {
                     position: relative;
                     width: 120px;
                     height: 160px;
-                    margin-top: 10px;
                     border-radius: 8px;
                     overflow: hidden;
                     border: 2px solid #00c853;
                 }
                 .photo-preview-img { width: 100%; height: 100%; object-fit: cover; }
 
-                .btn-capture {
+                .mirrored { transform: scaleX(-1); }
+                .camera-overlay {
+                    position: relative;
                     width: 100%;
-                    padding: 12px;
-                    background: #00c853;
-                    color: #fff;
+                    background: #000;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    margin-bottom: 15px;
+                }
+                .video-container { width: 100%; line-height: 0; }
+                .video-container video { width: 100%; height: auto; background: #000; }
+                .camera-controls {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-around;
+                    padding: 20px;
+                    background: rgba(0,0,0,0.5);
+                }
+                .btn-cam-action {
+                    background: transparent;
                     border: none;
-                    border-radius: 4px;
-                    margin-top: 10px;
-                    font-weight: 700;
+                    color: #fff;
+                    font-size: 1rem;
                     cursor: pointer;
-                    min-height: 44px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 60px;
+                }
+                .btn-cam-capture {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 50%;
+                    background: #fff;
+                    border: 4px solid rgba(255,255,255,0.3);
+                    padding: 0;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .capture-inner {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
+                    background: #fff;
+                    border: 2px solid #000;
+                }
+                .btn-cam-capture:active .capture-inner { transform: scale(0.9); }
+                .photo-preview-section { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+                .btn-retake {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    color: #00c853;
+                    background: transparent;
+                    border: 1px solid #00c853;
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    width: fit-content;
+                    font-weight: 600;
                 }
 
                 .btn-submit {
