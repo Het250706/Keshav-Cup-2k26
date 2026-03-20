@@ -9,7 +9,7 @@ export async function POST() {
         console.log('--- BULK RE-PUSH ALL PLAYERS FROM GOOGLE SHEET ---');
 
         // 1. Fetch all registrations from Google Sheet
-        const sheetId = '1zyokrUHFwtDuLqsxQXwPANm4ezK7ao81QfyWEnBv7Tk';
+        const sheetId = process.env.GOOGLE_SHEET_ID || '1ZHD222skktQspk97xv-s5T2uUa09t7SOIGmxtaICUHA';
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
         const res = await fetch(url, { cache: 'no-store' });
 
@@ -32,26 +32,29 @@ export async function POST() {
                 return val === null || val === undefined ? '' : String(val);
             };
 
-            let photoUrl = getValue(10);
+            // NEW MAPPING BASED ON SYNC-SHEET:
+            // 2: Full Name, 3: Mo. no., 6: Photo, 7: Participation, 8: Skill, 9: Birth Date
+            const fullName = getValue(2);
+            const mobile = getValue(3);
+            let photoUrl = getValue(6);
+            const participation = getValue(7);
+            const skill = getValue(8);
+
             if (photoUrl && (photoUrl.includes('drive.google.com') || photoUrl.includes('docs.google.com/uc'))) {
-                let driveId = '';
-                if (photoUrl.includes('id=')) {
-                    driveId = photoUrl.split('id=')[1].split('&')[0];
-                } else if (photoUrl.includes('/d/')) {
-                    driveId = photoUrl.split('/d/')[1].split('/')[0];
-                }
-                if (driveId) {
-                    photoUrl = `https://lh3.googleusercontent.com/d/${driveId}`;
+                const fileIdMatch = photoUrl.match(/[-\w]{25,}/);
+                if (fileIdMatch) {
+                    photoUrl = `https://lh3.googleusercontent.com/d/${fileIdMatch[0]}`;
                 }
             }
 
             return {
-                fullName: getValue(1),
-                skill: getValue(7),
-                participation: getValue(6),
+                fullName,
+                mobile,
+                skill,
+                participation,
                 photo: photoUrl
             };
-        }).filter((p: any) => p.fullName && p.fullName.trim() !== '');
+        }).filter((p: any) => p.fullName && p.fullName.trim() !== '' && p.fullName !== 'Full Name:');
 
         console.log(`Found ${sheetPlayers.length} players in Google Sheet`);
 
@@ -62,9 +65,12 @@ export async function POST() {
         );
 
         // 3. Check which players already exist in DB
-        const { data: existingPlayers } = await supabaseAdmin.from('players').select('first_name, last_name');
+        const { data: existingPlayers } = await supabaseAdmin.from('players').select('first_name, last_name, phone');
         const existingNames = new Set(
             (existingPlayers || []).map((p: any) => `${p.first_name} ${p.last_name}`.toLowerCase().trim())
+        );
+        const existingPhones = new Set(
+            (existingPlayers || []).map((p: any) => String(p.phone).trim())
         );
 
         // 4. Insert only new players
@@ -74,7 +80,9 @@ export async function POST() {
 
         for (const sp of sheetPlayers) {
             const fullName = sp.fullName.trim();
-            if (existingNames.has(fullName.toLowerCase())) {
+            const mobile = sp.mobile.trim();
+
+            if (existingNames.has(fullName.toLowerCase()) || (mobile && existingPhones.has(mobile))) {
                 skipped++;
                 continue;
             }
@@ -86,12 +94,13 @@ export async function POST() {
             const { error } = await supabaseAdmin.from('players').insert([{
                 first_name: firstName,
                 last_name: lastName,
-                cricket_skill: sp.skill || 'N/A',
+                phone: mobile,
+                cricket_skill: sp.skill || 'All-rounder',
+                role: sp.skill || 'All-rounder',
                 was_present_kc3: sp.participation || 'No',
                 photo_url: sp.photo || '',
                 base_price: 20000000,
                 category: 'Unassigned',
-                role: sp.skill || 'All-rounder',
                 auction_status: 'pending'
             }]);
 
@@ -101,6 +110,7 @@ export async function POST() {
             } else {
                 pushed++;
                 existingNames.add(fullName.toLowerCase());
+                if (mobile) existingPhones.add(mobile);
             }
         }
 
@@ -112,7 +122,7 @@ export async function POST() {
             skipped,
             total: sheetPlayers.length,
             errors: errors.length > 0 ? errors : undefined,
-            message: `Restored ${pushed} players from Google Sheet. ${skipped} already existed.`
+            message: `Restored ${pushed} players from the NEW Google Sheet. ${skipped} skipped (already exist).`
         });
 
     } catch (err: any) {

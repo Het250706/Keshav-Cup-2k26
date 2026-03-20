@@ -196,26 +196,7 @@ function AdminDashboardContent() {
         }
     };
 
-    const clearPool = async () => {
-        if (!confirm('🚨 EMERGENCY ACTION: This will delete ALL players, ALL bids, and ALL match assignments. This is irreversible. "Temporary" means you will have to re-sync them from the Google Sheet. Continue?')) return;
 
-        setSyncing(true);
-        try {
-            const res = await fetch('/api/admin/clear-pool', { method: 'POST' });
-            const data = await res.json();
-
-            if (data.success) {
-                alert('✅ Player pool cleared successfully!');
-                fetchData();
-            } else {
-                throw new Error(data.error || 'Failed to clear pool');
-            }
-        } catch (err: any) {
-            alert('Error: ' + err.message);
-        } finally {
-            setSyncing(false);
-        }
-    };
 
     const auditBudgets = async () => {
         if (!confirm('Re-calculate all team budgets based on actual sold players? This will fix discrepancies caused by manual deletions.')) return;
@@ -553,21 +534,6 @@ function AdminDashboardContent() {
                                         }}
                                     >
                                         {syncing ? 'RESTORING...' : '🔄 RESTORE ALL PLAYERS'}
-                                    </button>
-                                    <button
-                                        onClick={clearPool}
-                                        style={{
-                                            background: 'rgba(255, 75, 75, 0.1)',
-                                            color: '#ff4b4b',
-                                            border: '1px solid rgba(255, 75, 75, 0.3)',
-                                            padding: '6px 15px',
-                                            borderRadius: '8px',
-                                            fontSize: '0.7rem',
-                                            fontWeight: 900,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        CLEAR ALL PLAYERS
                                     </button>
                                 </div>
                             </div>
