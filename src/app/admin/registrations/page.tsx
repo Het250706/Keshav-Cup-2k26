@@ -137,16 +137,25 @@ function RegistrationControlContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ player })
             });
-            const result = await res.json();
-            if (result.success) {
-                setRegistrations(prev => prev.map(p =>
-                    p.id === player.id ? { ...p, is_pushed: true } : p
-                ));
-                alert(`SUCCESS! ${player.name} moved to the Player Pool.`);
+            
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const result = await res.json();
+                if (result.success) {
+                    setRegistrations(prev => prev.map(p =>
+                        p.id === player.id ? { ...p, is_pushed: true } : p
+                    ));
+                    alert(`SUCCESS! ${player.name} moved to the Player Pool.`);
+                } else {
+                    alert('Failed to push: ' + result.error);
+                }
             } else {
-                alert('Failed to push: ' + result.error);
+                const text = await res.text();
+                console.error('Non-JSON response received:', text);
+                alert(`Error pushing player: Server returned ${res.status}. Check console for details.`);
             }
         } catch (err: any) {
+            console.error('Fetch error:', err);
             alert('Error pushing player: ' + err.message);
         } finally {
             setPushingId(null);

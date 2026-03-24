@@ -33,6 +33,8 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
         playedSoldPlayerId: null
     });
     const [bidNotifications, setBidNotifications] = useState<any[]>([]);
+    const [showSoldMessage, setShowSoldMessage] = useState(false);
+    const [soldData, setSoldData] = useState<{ playerName: string, teamName: string, amount: number } | null>(null);
 
     // --- REFS ---
     const lastBidValueRef = useRef<number>(0);
@@ -68,20 +70,18 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
             finalState.highest_bid_team_id ? fetchTeam(finalState.highest_bid_team_id) : Promise.resolve(null)
         ]);
         
-        setState((prev: any) => ({ 
-            ...prev, 
-            auctionState: finalState, 
-            currentPlayer: player, 
-            highestBidTeam: team,
-            showStamp: true 
-        }));
-
-        hammerSoundRef.current?.play().catch(() => {});
-
-        setTimeout(() => {
-            setState((prev: any) => ({ ...prev, showSoldBanner: true }));
+        // Populate Sold Message Data
+        if (player) {
+            setSoldData({
+                playerName: `${player.first_name} ${player.last_name}`,
+                teamName: team?.name || 'Unknown Team',
+                amount: finalState.current_highest_bid || 0
+            });
+            setShowSoldMessage(true);
             
+            // Clean up sequence aligned to 5 seconds
             setTimeout(() => {
+                setShowSoldMessage(false);
                 setState((prev: any) => ({
                     ...prev,
                     auctionState: { ...prev.auctionState, status: 'IDLE' },
@@ -89,12 +89,24 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
                     highestBidTeam: null,
                     showStamp: false,
                     showSoldBanner: false,
-                    playedSoldPlayerId: null
+                    playedSoldPlayerId: null,
+                    loading: false
                 }));
                 setBidNotifications([]);
                 lastBidValueRef.current = 0;
-            }, 6000);
-        }, 2500);
+            }, 5000);
+        }
+
+        setState((prev: any) => ({ 
+            ...prev, 
+            auctionState: finalState, 
+            currentPlayer: player, 
+            highestBidTeam: team,
+            showStamp: true,
+            loading: false
+        }));
+
+        hammerSoundRef.current?.play().catch(() => {});
     }, [fetchPlayer, fetchTeam]);
 
     const fetchData = useCallback(async () => {
@@ -129,7 +141,7 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
                         loading: false
                     }));
                     
-                    // Preload next player if current is bidding
+                    // Preload next player
                     if (stateData.current_player_id) {
                         try {
                             const { data: nextPlayers } = await supabase
@@ -164,6 +176,9 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
                     lastBidValueRef.current = stateData.current_highest_bid;
                 }
                 isFirstLoadRef.current = false;
+                setState((prev: any) => ({ ...prev, loading: false }));
+            } else {
+                setState((prev: any) => ({ ...prev, loading: false }));
             }
         } catch (err) {
             console.error('Fetch Error:', err);
@@ -306,12 +321,41 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
             {/* MAIN CONTENT AREA */}
             <div style={{ height: 'calc(100vh - 120px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, position: 'relative' }}>
                 <AnimatePresence mode="wait">
-                    {!isIdle && currentPlayer && (
+                    {showSoldMessage ? (
+                        <motion.div
+                            key="sold-message"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 1.1, filter: 'blur(30px)' }}
+                            style={{ 
+                                background: 'rgba(255, 215, 0, 0.05)', 
+                                border: '5px solid #FFD700', 
+                                borderRadius: '80px', 
+                                padding: '100px 150px', 
+                                textAlign: 'center',
+                                boxShadow: '0 0 150px rgba(255, 215, 0, 0.3)',
+                                backdropFilter: 'blur(30px)',
+                                zIndex: 200
+                            }}
+                        >
+                            <motion.h1 
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 0.5, repeat: 3 }}
+                                style={{ color: '#FFD700', fontSize: '15rem', fontWeight: 950, margin: 0, textShadow: '0 0 80px #FFD700' }}
+                            >
+                                SOLD!
+                            </motion.h1>
+                            <h2 style={{ fontSize: '7rem', fontWeight: 900, color: '#fff', margin: '20px 0' }}>{soldData?.playerName.toUpperCase()}</h2>
+                            <h3 style={{ fontSize: '6rem', fontWeight: 800, color: '#FFD700' }}>TO: {soldData?.teamName.toUpperCase()}</h3>
+                            <h4 style={{ fontSize: '5rem', fontWeight: 900, color: '#fff' }}>FOR: {soldData?.amount} PUSHP</h4>
+                        </motion.div>
+                    ) : (!isIdle && currentPlayer) ? (
                         <motion.div 
                             key={currentPlayer.id}
-                            initial={{ opacity: 0, y: 50 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 1.05, filter: 'blur(30px)' }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0, filter: 'blur(30px)' }}
+                            transition={{ duration: 0.5 }}
                             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '95%', maxWidth: '1920px' }}
                         >
                             <div style={{ display: 'flex', gap: '100px', alignItems: 'center' }}>
@@ -483,9 +527,9 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
                                 </div>
                             </div>
 
-                            {/* SOLD BANNER */}
+                            {/* OLD SOLD BANNER (RETAINED FOR STAMP LOGIC BUT HIDDEN IF NEW OVERLAY IS ON) */}
                             <AnimatePresence>
-                                {showSoldBanner && highestBidTeam && (
+                                {showSoldBanner && highestBidTeam && !showSoldMessage && (
                                     <motion.div
                                         initial={{ scale: 0.8, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
@@ -515,6 +559,41 @@ const DisplayAuctionPage = memo(function DisplayAuctionPage() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="waiting-screen"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            style={{ textAlign: 'center', zIndex: 10 }}
+                        >
+                            <motion.img 
+                                src="/logo.png" 
+                                style={{ height: '150px', width: 'auto', marginBottom: '40px' }}
+                                animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
+                                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                            <h1 style={{ 
+                                color: '#FFD700', 
+                                fontSize: '8rem', 
+                                fontWeight: 950, 
+                                margin: 0,
+                                textShadow: '0 0 40px rgba(255, 215, 0, 0.3)',
+                                letterSpacing: '10px'
+                            }}>
+                                AUCTION IN PROGRESS
+                            </h1>
+                            <h2 style={{ 
+                                color: '#FFD700', 
+                                fontSize: '3rem', 
+                                fontWeight: 600, 
+                                marginTop: '10px',
+                                letterSpacing: '5px',
+                                opacity: 0.7
+                            }}>
+                                JAY SWAMINARAYAN
+                            </h2>
                         </motion.div>
                     )}
                 </AnimatePresence>
