@@ -45,11 +45,11 @@ export default function Navbar() {
     const getNavLinkStyle = (path: string) => ({
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        gap: '6px',
         color: pathname === path ? 'var(--primary)' : 'var(--text-muted)',
         fontWeight: 600,
         transition: 'all 0.3s ease',
-        fontSize: '0.95rem'
+        fontSize: '0.85rem'
     });
 
     const NavItems = () => (
@@ -150,7 +150,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Menu */}
-            <div className="desktop-only" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+            <div className="desktop-only" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <NavItems />
             </div>
 

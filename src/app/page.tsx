@@ -42,55 +42,56 @@ export default function HomePage() {
               transition={{ duration: 1 }}
               style={{
                 width: '100%',
-                maxWidth: '400px',
+                maxWidth: '430px',
                 margin: '0 auto 40px',
                 position: 'relative'
               }}
             >
               <img 
                 src="/logo.png" 
-                alt="Keshav Cup 4.0" 
+                alt="Keshav Cup - 2026" 
                 style={{
                   width: '100%',
                   height: 'auto',
-                  filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.1))'
+                  filter: 'drop-shadow(0 0 40px rgba(255,215,0,0.15))'
                 }}
               />
             </motion.div>
-
-            {/* Title */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-            >
-              <h1 className="text-responsive-h1" style={{
-                fontSize: 'clamp(2.5rem, 8vw, 5rem)',
-                fontWeight: 950,
-                marginBottom: '20px',
-                letterSpacing: '-2px',
-                lineHeight: 1.1
-              }}>
-                <span className="title-gradient">KESHAV CUP</span>
-              </h1>
-              <p style={{
-                fontSize: 'clamp(0.9rem, 1.5vw, 1.2rem)',
-                color: 'var(--text-muted)',
-                marginBottom: '10px',
-                fontWeight: 700,
-                letterSpacing: '3px'
-              }}>
-                KESHAV CUP CRICKET AUCTION
-              </p>
-              <p style={{
-                fontSize: 'clamp(1rem, 2vw, 1.1rem)',
-                color: 'var(--primary)',
-                fontWeight: 800,
-                marginBottom: '40px'
-              }}>
-                JAY SWAMINARAYAN
-              </p>
-            </motion.div>
+ 
+             {/* Title */}
+             <motion.div
+               initial={{ opacity: 0, y: 30 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: 0.3, duration: 0.8 }}
+             >
+               <h1 className="text-responsive-h1" style={{
+                 fontSize: 'clamp(2.5rem, 10vw, 5.5rem)',
+                 fontWeight: 950,
+                 marginBottom: '20px',
+                 letterSpacing: '-2px',
+                 lineHeight: 1.1
+               }}>
+                 <span className="title-gradient">Keshav Cup - 2026</span>
+               </h1>
+               <p style={{
+                 fontSize: 'clamp(0.9rem, 1.5vw, 1.2rem)',
+                 color: 'var(--text-muted)',
+                 marginBottom: '10px',
+                 fontWeight: 700,
+                 letterSpacing: '5px'
+               }}>
+                 PREMIUM CRICKET AUCTION
+               </p>
+               <p style={{
+                 fontSize: 'clamp(1rem, 2vw, 1.3rem)',
+                 color: 'var(--primary)',
+                 fontWeight: 900,
+                 marginBottom: '40px',
+                 letterSpacing: '1px'
+               }}>
+                 JAY SWAMINARAYAN
+               </p>
+             </motion.div>
 
             {/* CTA Buttons */}
             <motion.div

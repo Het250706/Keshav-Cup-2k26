@@ -1,4 +1,4 @@
--- FINAL AUCTION SETUP (100 Start / 100 Gap / 3000 points)
+-- FINAL AUCTION SETUP (100 Start / 100 Gap / 6000 points)
 -- Run this ONCE in Supabase SQL Editor to finalize all rules
 
 -- 1. CLEAN UP PREVIOUS MISTAKES (Prevents "Already exists" errors)
@@ -13,11 +13,11 @@ BEGIN
 END $$;
 
 -- 2. UPDATE TABLE DEFAULTS
-ALTER TABLE teams ALTER COLUMN remaining_budget SET DEFAULT 3000;
+ALTER TABLE teams ALTER COLUMN remaining_budget SET DEFAULT 6000;
 ALTER TABLE players ALTER COLUMN base_price SET DEFAULT 100;
 
 -- 3. RESET CURRENT DATA TO THE NEW RULES
-UPDATE teams SET remaining_budget = 3000 WHERE id IS NOT NULL;
+UPDATE teams SET remaining_budget = 6000 WHERE id IS NOT NULL;
 UPDATE players SET base_price = 100 WHERE id IS NOT NULL;
 UPDATE auction_state SET bidding_status = 'IDLE', current_highest_bid = 0, highest_bid_team_id = NULL WHERE id IS NOT NULL;
 
@@ -51,9 +51,9 @@ BEGIN
         v_next_bid := v_current_highest_bid + 100;
     END IF;
 
-    -- Safety Check (Total 3000)
-    IF v_next_bid > 3000 THEN
-        RETURN json_build_object('success', false, 'error', 'Bid exceeds 3000 limit');
+    -- Safety Check (Total 6000)
+    IF v_next_bid > 6000 THEN
+        RETURN json_build_object('success', false, 'error', 'Bid exceeds 6000 limit');
     END IF;
 
     -- Team Budget Check

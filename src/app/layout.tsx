@@ -11,9 +11,7 @@ export const metadata: Metadata = {
   description: "The ultimate real-time cricket auction platform. Bid on your favorite players and build your dream team.",
 };
 
-import NotificationSystem from '@/components/NotificationSystem';
-import CreditBanner from '@/components/CreditBanner';
-import { AuthProvider } from '@/components/AuthProvider';
+import ClientLayout from '@/components/ClientLayout';
 import type { Metadata } from 'next';
 
 export default function RootLayout({
@@ -24,11 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={outfit.className}>
-        <AuthProvider>
+        <ClientLayout>
           {children}
-          <NotificationSystem />
-          <CreditBanner />
-        </AuthProvider>
+        </ClientLayout>
       </body>
     </html>
   );

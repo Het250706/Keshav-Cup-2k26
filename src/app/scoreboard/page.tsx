@@ -217,18 +217,43 @@ function ScoreboardContent() {
     }
 
     return (
-        <main className="animated-bg" style={{ minHeight: '100vh', color: '#fff', padding: '20px', position: 'relative' }}>
-            {/* Hamburger Button */}
-            <button onClick={() => setIsMenuOpen(true)} style={{ position: 'fixed', top: '30px', right: '30px', zIndex: 100, background: 'linear-gradient(135deg, #ffd700, #ffaa00)', color: '#000', border: 'none', width: '60px', height: '60px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }} className="menu-trigger">
-                <Menu size={28} />
-            </button>
+        <main className="animated-bg" style={{ minHeight: '100vh', color: '#fff', position: 'relative' }}>
+            {/* Horizontal Top Navbar - BhaktiParv style */}
+            <nav style={{
+                position: 'sticky',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '80px',
+                background: 'rgba(0,0,0,0.8)',
+                backdropFilter: 'blur(20px)',
+                padding: '0 40px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                zIndex: 100,
+                borderBottom: '1px solid rgba(255,215,0,0.1)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ width: 'clamp(35px, 8vw, 45px)', height: 'clamp(35px, 8vw, 45px)' }}>
+                        <img src="/logo.png" alt="Logo" style={{ width: '100%', height: 'auto', filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.3))' }} />
+                    </div>
+                    <span style={{ fontWeight: 900, fontSize: 'clamp(1rem, 4vw, 1.4rem)', letterSpacing: '0.5px', color: '#fff' }}>Keshav Cup - 2026</span>
+                </div>
+                <button 
+                    onClick={() => setIsMenuOpen(true)}
+                    style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '10px' }}
+                >
+                    <Menu size={28} />
+                </button>
+            </nav>
 
             {/* Sidebar Overlay */}
             <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 1000, opacity: isMenuOpen ? 1 : 0, visibility: isMenuOpen ? 'visible' : 'hidden', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                 <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 'min(400px, 85%)', background: '#0a0a0a', padding: '40px', transform: isMenuOpen ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)', borderLeft: '1px solid rgba(255, 215, 0, 0.2)', boxShadow: '-20px 0 50px rgba(0,0,0,0.8)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '60px' }}>
-                        <div style={{ width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,215,0,0.1)', borderRadius: '50%', color: 'var(--primary)' }}>
-                            <Trophy size={30} />
+                        <div style={{ width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img src="/logo.png" alt="Keshav Cup Logo" style={{ width: '100%', height: 'auto', filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.3))' }} />
                         </div>
                         <button onClick={() => setIsMenuOpen(false)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', width: '45px', height: '45px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
                             <X color="#fff" size={24} />
@@ -255,13 +280,13 @@ function ScoreboardContent() {
                     </div>
 
                     <div style={{ position: 'absolute', bottom: '40px', left: '40px', right: '40px', padding: '25px', background: 'rgba(255,215,0,0.03)', borderRadius: '24px', border: '1px dashed rgba(255,215,0,0.2)', textAlign: 'center' }}>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '2px' }}>KESHAV CUP 4.0</div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '2px' }}>Keshav Cup - 2026</div>
                         <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>REAL-TIME UPDATES ENABLED</div>
                     </div>
                 </div>
             </div>
 
-            <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
 
                 {activeView !== 'home' && (
                     <button onClick={() => setActiveView('home')} style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.03)', color: '#fff', border: '1px solid rgba(255,215,0,0.2)', padding: '16px 28px', borderRadius: '20px', cursor: 'pointer', marginBottom: '40px', fontWeight: 900, fontSize: '0.9rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', backdropFilter: 'blur(10px)' }} className="back-btn fade-in">
@@ -270,36 +295,49 @@ function ScoreboardContent() {
                 )}
 
                 {activeView === 'home' && (
-                    <div style={{ textAlign: 'center', padding: '80px 20px' }} className="fade-in">
-                        <div style={{ width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 50px', background: 'rgba(255,215,0,0.1)', borderRadius: '50%', color: 'var(--primary)', filter: 'drop-shadow(0 0 30px rgba(255,215,0,0.2))' }}>
-                            <Trophy size={60} />
+                    <div style={{ textAlign: 'center', padding: '60px 20px' }} className="fade-in">
+                        <div style={{ marginBottom: '15px', color: 'rgba(255, 215, 0, 0.5)', fontWeight: 900, fontSize: 'clamp(1.1rem, 5vw, 1.6rem)', letterSpacing: '6px', textTransform: 'uppercase', textShadow: '0 0 15px rgba(255, 215, 0, 0.1)' }}>Welcome to</div>
+                        <h1 className="title-gradient" style={{ fontSize: 'clamp(3rem, 15vw, 6rem)', fontWeight: 950, marginBottom: '50px', letterSpacing: '-2px', lineHeight: 1.1, textShadow: '0 10px 40px rgba(255, 215, 0, 0.25)' }}>Keshav Cup - 2026</h1>
+                        
+                        <div className="main-logo-container" style={{ position: 'relative', margin: '0 auto 60px', width: '400px', height: '400px' }}>
+                            <div style={{ position: 'absolute', inset: -20, background: 'radial-gradient(circle, rgba(255,215,0,0.12) 0%, transparent 75%)', filter: 'blur(50px)' }} />
+                            <img 
+                                src="/logo.png" 
+                                alt="Keshav Cup" 
+                                style={{ 
+                                    width: '100%', 
+                                    height: 'auto', 
+                                    position: 'relative', 
+                                    zIndex: 1, 
+                                    filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.2)) drop-shadow(0 20px 40px rgba(0,0,0,0.8))',
+                                    transition: 'all 0.5s ease'
+                                }} 
+                            />
                         </div>
-                        <h1 className="title-gradient" style={{ fontSize: 'clamp(3.5rem, 12vw, 6rem)', fontWeight: 950, marginBottom: '0', letterSpacing: '-3px', lineHeight: 1 }}>KESHAV CUP 4.0</h1>
-                        <p style={{ color: 'var(--primary)', letterSpacing: '8px', fontWeight: 900, fontSize: '1.4rem', margin: '20px 0 60px' }}>JAY SWAMINARAYAN</p>
 
-                        <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.5), transparent)', width: '300px', margin: '0 auto 70px' }} />
+                        <p style={{ color: 'var(--text-muted)', letterSpacing: '4px', fontWeight: 700, fontSize: 'clamp(0.7rem, 3vw, 1rem)', margin: '20px 0 60px', textTransform: 'uppercase', padding: '0 20px' }}>Join us for an extraordinary celebration of Keshav Cup 2026 Cricket Tournament</p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', maxWidth: '1000px', margin: '0 auto' }}>
                             <div className="feature-card" onClick={() => setActiveView('live')}>
-                                <div className="card-icon-circle">
-                                    <Activity size={28} color="#000" />
+                                <div className="card-icon-circle" style={{ background: '#000', border: '1px solid var(--primary)' }}>
+                                    <Activity size={28} color="var(--primary)" style={{ filter: 'drop-shadow(0 0 8px var(--primary-glow))' }} />
                                 </div>
-                                <h3 style={{ fontWeight: 950, fontSize: '1.4rem', marginBottom: '8px', letterSpacing: '-0.5px', color: '#fff' }}>LIVE MATCH</h3>
-                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '1px' }}>REAL-TIME IMMERSIVE SCOREBOARD</p>
+                                <h3 style={{ fontWeight: 950, fontSize: '1.2rem', marginBottom: '8px', color: '#fff' }}>LIVE MATCH</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 600 }}>REAL-TIME IMMERSIVE SCOREBOARD</p>
                             </div>
                             <div className="feature-card" onClick={() => setActiveView('matches')}>
-                                <div className="card-icon-circle">
-                                    <Swords size={28} color="#000" />
+                                <div className="card-icon-circle" style={{ background: '#000', border: '1px solid var(--primary)' }}>
+                                    <Swords size={28} color="var(--primary)" style={{ filter: 'drop-shadow(0 0 8px var(--primary-glow))' }} />
                                 </div>
-                                <h3 style={{ fontWeight: 950, fontSize: '1.4rem', marginBottom: '8px', letterSpacing: '-0.5px', color: '#fff' }}>MATCH HISTORY</h3>
-                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '1px' }}>TOURNAMENT PROGRESS & RESULTS</p>
+                                <h3 style={{ fontWeight: 950, fontSize: '1.2rem', marginBottom: '8px', color: '#fff' }}>MATCH HISTORY</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 600 }}>TOURNAMENT PROGRESS & RESULTS</p>
                             </div>
                             <div className="feature-card" onClick={() => setActiveView('teams')}>
-                                <div className="card-icon-circle">
-                                    <Trophy size={28} color="#000" />
+                                <div className="card-icon-circle" style={{ background: '#000', border: '1px solid var(--primary)' }}>
+                                    <img src="/logo.png" alt="Logo" style={{ width: '40px', height: 'auto', filter: 'drop-shadow(0 0 5px var(--primary-glow))' }} />
                                 </div>
-                                <h3 style={{ fontWeight: 950, fontSize: '1.4rem', marginBottom: '8px', letterSpacing: '-0.5px', color: '#fff' }}>TOURNAMENT TEAMS</h3>
-                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '1px' }}>MEET THE 8 KESHAV CUP TEAM</p>
+                                <h3 style={{ fontWeight: 950, fontSize: '1.2rem', marginBottom: '8px', color: '#fff' }}>TOURNAMENT TEAMS</h3>
+                                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 600 }}>MEET THE 8 KESHAV CUP TEAM</p>
                             </div>
                         </div>
                     </div>
@@ -343,8 +381,8 @@ function ScoreboardContent() {
                             >
                                 <div style={{ padding: '40px', background: 'linear-gradient(to bottom, rgba(255,215,0,0.05), transparent)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255, 215, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
-                                            <Shield size={50} />
+                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255, 215, 0, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255, 215, 0, 0.2)' }}>
+                                            <img src="/logo.png" alt="Logo" style={{ width: '60px', height: 'auto', filter: 'drop-shadow(0 0 5px rgba(255,215,0,0.2))' }} />
                                         </div>
                                         <div>
                                             <h2 style={{ fontSize: '2.5rem', fontWeight: 950, margin: 0 }}>{selectedTeamForSquad.name}</h2>
@@ -441,15 +479,21 @@ function ScoreboardContent() {
                                     <h1 style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 950, marginTop: '15px', letterSpacing: '-2px' }}>{match.match_name}</h1>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center', gap: '20px md:60px', position: 'relative', zIndex: 1 }}>
+                                <div className="innings-grid" style={{ position: 'relative', zIndex: 1 }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', fontWeight: 950, color: 'var(--primary)', marginBottom: '15px' }}>{match.team1?.name}</div>
+                                        <div style={{ width: '80px', height: '80px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,215,0,0.05)', borderRadius: '50%' }}>
+                                            <img src="/logo.png" alt="Logo" style={{ width: '60px', height: 'auto', filter: 'drop-shadow(0 0 5px rgba(255,215,0,0.3))' }} />
+                                        </div>
+                                        <div style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', fontWeight: 950, color: 'var(--primary)', marginBottom: '15px' }}>{match.team1?.name}</div>
                                         <div style={{ fontSize: '0.8rem', fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', marginBottom: '10px' }}>INNINGS 1</div>
                                         <ScoreDisplay inn={innings.find(i => i.batting_team_id === match.team1_id)} />
                                     </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 950, color: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '50%' }}>VS</div>
+                                    <div className="vs-divider" style={{ fontSize: '1.2rem', fontWeight: 950, color: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '50%', margin: '20px auto' }}>VS</div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', fontWeight: 950, color: 'var(--primary)', marginBottom: '15px' }}>{match.team2?.name}</div>
+                                        <div style={{ width: '80px', height: '80px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,215,0,0.05)', borderRadius: '50%' }}>
+                                            <img src="/logo.png" alt="Logo" style={{ width: '60px', height: 'auto', filter: 'drop-shadow(0 0 5px rgba(255,215,0,0.3))' }} />
+                                        </div>
+                                        <div style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', fontWeight: 950, color: 'var(--primary)', marginBottom: '15px' }}>{match.team2?.name}</div>
                                         <div style={{ fontSize: '0.8rem', fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '2px', marginBottom: '10px' }}>INNINGS 2</div>
                                         <ScoreDisplay inn={innings.find(i => i.batting_team_id === match.team2_id)} />
                                     </div>
@@ -679,10 +723,22 @@ function ScoreboardContent() {
                 .teams-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; }
                 @media (min-width: 992px) { .teams-grid { grid-template-columns: repeat(4, 1fr); } }
                 
-                .feature-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,215,0,0.15) !important; padding: 40px; border-radius: 24px; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+                .feature-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,215,0,0.15) !important; padding: 25px; border-radius: 24px; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
                 .feature-card:hover { transform: translateY(-8px); border-color: rgba(255,215,0,0.5) !important; box-shadow: 0 20px 40px rgba(255,215,0,0.1); }
                 
-                .card-icon-circle { width: 70px; height: 70px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3); }
+                .card-icon-circle { width: 55px; height: 55px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3); }
+                
+                .main-logo-container { width: 450px; height: 450px; display: flex; alignItems: center; justifyContent: center; }
+                .innings-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 40px; }
+
+                @media (max-width: 768px) {
+                    .teams-grid { grid-template-columns: 1fr; }
+                    .main-logo-container { width: 220px !important; height: 220px !important; margin: 0 auto 40px !important; }
+                    .innings-grid { grid-template-columns: 1fr; gap: 30px; }
+                    #stats { grid-template-columns: 1fr !important; }
+                    .container { padding: 20px 15px !important; }
+                    nav { padding: 0 20px !important; }
+                }
                 
                 .sidebar-link:hover { padding-left: 35px !important; border-left: 4px solid var(--primary) !important; }
                 .sidebar-link.active { border-left: 4px solid var(--primary) !important; }
@@ -718,8 +774,8 @@ function ScoreDisplay({ inn }: { inn: any }) {
     if (!inn) return null;
     return (
         <div style={{ marginTop: '20px' }} className="fade-in">
-            <div style={{ fontSize: '5rem', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-2px', lineHeight: 1 }}>{inn.runs}<span style={{ fontSize: '2rem', opacity: 0.5, margin: '0 10px' }}>/</span>{inn.wickets}</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'rgba(255,255,255,0.4)', marginTop: '10px', letterSpacing: '4px' }}>{(inn.overs || 0).toFixed(1)} OVERS</div>
+            <div style={{ fontSize: 'clamp(3rem, 15vw, 5rem)', fontWeight: 950, color: 'var(--primary)', letterSpacing: '-2px', lineHeight: 1 }}>{inn.runs}<span style={{ fontSize: 'clamp(1rem, 5vw, 2rem)', opacity: 0.5, margin: '0 10px' }}>/</span>{inn.wickets}</div>
+            <div style={{ fontSize: 'clamp(0.8rem, 4vw, 1.4rem)', fontWeight: 900, color: 'rgba(255,255,255,0.4)', marginTop: '10px', letterSpacing: '4px' }}>{(inn.overs || 0).toFixed(1)} OVERS</div>
         </div>
     );
 }

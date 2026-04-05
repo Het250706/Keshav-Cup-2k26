@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     try {
         const { error: teamError } = await supabaseAdmin
             .from('teams')
-            .update({ remaining_budget: 3000 })
+            .update({ remaining_budget: 5000 })
             .neq('id', '00000000-0000-0000-0000-000000000000');
 
         const { error: playerError } = await supabaseAdmin
