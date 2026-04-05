@@ -1,27 +1,11 @@
-export const BIDDING_STAGES = [
-    5, 10, 15, 20, 25, 50, 75, 100, 125, 175,
-    225, 275, 325, 425, 525, 625, 750, 875, 1000, 1150,
-    1300, 1450, 1600, 1800, 2000, 2500, 3125, 3750, 4375, 5000
-];
+export const BIDDING_STAGES = Array.from({ length: 30 }, (_, i) => (i + 1) * 100);
 
-export const TEAM_PURSE_LIMIT = 5000;
+export const TEAM_PURSE_LIMIT = 3000;
 export const MAX_SQUAD_SIZE = 9;
 
 export function getNextBid(currentBid: number): number {
-    if (currentBid === 0) return BIDDING_STAGES[0];
-
-    const currentIndex = BIDDING_STAGES.indexOf(currentBid);
-    if (currentIndex === -1) {
-        // Find the first stage higher than current bid
-        const next = BIDDING_STAGES.find(stage => stage > currentBid);
-        return next || BIDDING_STAGES[BIDDING_STAGES.length - 1];
-    }
-
-    if (currentIndex < BIDDING_STAGES.length - 1) {
-        return BIDDING_STAGES[currentIndex + 1];
-    }
-
-    return currentBid; // Already at max
+    if (currentBid >= 3000) return currentBid;
+    return (currentBid || 0) + 100;
 }
 
 export function getPurplePushp(bid: number): number | null {

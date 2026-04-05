@@ -425,6 +425,18 @@ function AdminDashboardContent() {
                                                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', color: '#fff', fontSize: '0.8rem' }}
                                             />
                                             <button
+                                                onClick={async () => {
+                                                    if (!confirm('Are you sure? This will set all team budgets to 3000.')) return;
+                                                    const res = await fetch('/api/admin/reset-budgets', { method: 'POST' });
+                                                    if (res.ok) {
+                                                        alert('All budgets have been reset to 3000.');
+                                                        fetchData();
+                                                    }
+                                                }}
+                                                className="btn-secondary"
+                                                style={{ fontSize: '0.7rem', padding: '0 15px', color: '#ff4b4b', border: '1px solid rgba(255, 75, 75, 0.3)' }}
+                                            >RESET BUDGETS (3000)</button>
+                                            <button
                                                 onClick={() => {
                                                     if (!newSlotName) return;
                                                     setNewSlotName('');

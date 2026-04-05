@@ -73,7 +73,7 @@ export async function POST(req: Request) {
             role: player.role || 'All-rounder',
             category: player.slot || player.occupation || 'Unassigned',
             batting_style: player.age?.toString() || '20',
-            base_price: player.base_price || 20000000,
+            base_price: 100,
             photo_url: finalPhoto,
             was_present_kc3: player.city || player.was_present_kc3 || 'No'
         };
