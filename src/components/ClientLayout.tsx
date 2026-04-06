@@ -16,7 +16,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <AuthProvider>
-      <Navbar />
+      <React.Suspense fallback={null}>
+        <Navbar />
+      </React.Suspense>
       <main style={{ minHeight: '100vh', paddingTop: noPadding ? '0px' : '80px' }}>
         {children}
       </main>
