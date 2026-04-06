@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from "react";
 import Navbar from '@/components/Navbar';
 import AuctionHistoryTable from '@/components/auction-history/AuctionHistoryTable';
@@ -9,18 +11,15 @@ function AuctionHistoryContent() {
     return (
         <RoleGuard allowedRole="admin">
             <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-                <div className="container-responsive" style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
-                    
+                
+                <Suspense fallback={null}>
                     <Navbar />
+                </Suspense>
 
-                    <div style={{ marginBottom: '50px' }}>
-                        <h1 className="title-gradient" style={{ fontSize: '3rem', fontWeight: 950, marginBottom: '10px' }}>
-                            AUCTION HISTORY
-                        </h1>
-                        <p style={{ color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '2px' }}>
-                            HALL OF FAME & ACQUISITION LOG
-                        </p>
-                    </div>
+                <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
+                    <h1 style={{ fontSize: '3rem', fontWeight: 900 }}>
+                        AUCTION HISTORY
+                    </h1>
 
                     <AuctionHistoryTable />
                 </div>
@@ -31,7 +30,7 @@ function AuctionHistoryContent() {
 
 export default function Page() {
     return (
-        <Suspense fallback={<div style={{ color: "white", padding: 20 }}>Loading...</div>}>
+        <Suspense fallback={<div style={{ color: "white" }}>Loading...</div>}>
             <AuctionHistoryContent />
         </Suspense>
     );
