@@ -100,7 +100,6 @@ export default function DashboardPage() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff', paddingBottom: '50px' }}>
-            <Navbar />
 
             <AnimatePresence>
                 {lastBidAlert && (

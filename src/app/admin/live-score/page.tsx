@@ -617,8 +617,6 @@ function AdminLiveScoreContent() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-            <Navbar />
-
             <div className="container-responsive" style={{ padding: '40px 20px', maxWidth: '1400px', margin: '0 auto' }}>
 
                 {/* Header Section */}

@@ -19,7 +19,9 @@ export default function RoleGuard({ children, allowedRole }: RoleGuardProps) {
             const currentRole = role?.toLowerCase();
             if (!user || currentRole !== allowedRole.toLowerCase()) {
                 console.log(`RoleGuard: Access Denied. User: ${user?.email}, Role: ${currentRole}, Required: ${allowedRole}`);
-                router.push('/login');
+                // REDIRECT to the correct login page based on the required role
+                const loginPath = allowedRole.toLowerCase() === 'admin' ? '/admin/login' : '/login';
+                router.push(loginPath);
             }
         }
     }, [user, role, loading, allowedRole, router]);

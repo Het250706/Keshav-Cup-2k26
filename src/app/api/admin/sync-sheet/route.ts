@@ -11,7 +11,7 @@ const supabaseAdmin = createClient(
 export async function GET() {
     console.log('--- SYNC SHEET CALLED ---');
     try {
-        const sheetId = process.env.GOOGLE_SHEET_ID || '1ZHD222skktQspk97xv-s5T2uUa09t7SOIGmxtaICUHA';
+        const sheetId = process.env.GOOGLE_SHEET_ID || '1pfeRG8b7dbrt3cuVErSRpnwrmwMOH8AgsQla_NPTs_E';
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
         console.log('Fetching from URL:', url);
@@ -40,22 +40,37 @@ export async function GET() {
                 return c[i].f || c[i].v || '';
             };
 
-            // USER MAPPING:
-            // 2: Full Name, 3: Mo. no., 6: Photo, 7: Participation, 8: Skill, 9: Birth Date
+            // NEW USER MAPPING FROM GOOGLE SHEET:
+            // 1: યુવક સભા, 2: Full Name, 3: Mobile, 4: Address, 5: કાર્યકર, 
+            // 6: Birth Date, 7: Occupation, 8: Photo URL, 9: કેશવ કપ, 10: Cricket Skill,
+            // 11: T-shirt Size, 12: T-shirt number
+            
+            const yuvaSabha = String(getValue(1)).trim();
             const fullName = String(getValue(2)).trim();
             const mobile = String(getValue(3)).trim();
-            const photoUrl = String(getValue(6));
-            const participation = String(getValue(7));
-            const skill = String(getValue(8));
-            const birthStr = String(getValue(9));
+            const address = String(getValue(4)).trim();
+            const areaContact = String(getValue(5)).trim();
+            const birthDate = String(getValue(6)).trim();
+            const occupation = String(getValue(7)).trim();
+            const photoUrl = String(getValue(8));
+            const participation = String(getValue(9));
+            const skill = String(getValue(10));
+            const tshirtSize = String(getValue(11));
+            const tshirtNumber = String(getValue(12));
 
-            if (!fullName || fullName === 'Full Name:' || !mobile) continue;
+            if (!fullName || fullName === 'Full Name' || !mobile) continue;
 
             // Age Calculation
             let age = 20;
-            if (birthStr.startsWith('Date(')) {
-                const matchAge = birthStr.match(/Date\((\d+),/);
-                if (matchAge) age = 2026 - parseInt(matchAge[1]);
+            if (birthDate) {
+                if (birthDate.startsWith('Date(')) {
+                    const matchAge = birthDate.match(/Date\((\d+),/);
+                    if (matchAge) age = 2026 - parseInt(matchAge[1]);
+                } else {
+                    // Try to parse YYYY-MM-DD
+                    const yearMatch = birthDate.match(/^(\d{4})/);
+                    if (yearMatch) age = 2026 - parseInt(yearMatch[1]);
+                }
             }
 
             // NEW ROBUST GOOGLE DRIVE CONVERSION
@@ -86,9 +101,16 @@ export async function GET() {
                 mobile: mobile,
                 age: age,
                 role: skill || 'All-rounder',
-                city: participation || 'No', // Storing participation in city column
+                city: participation || 'No', // Following existing convention for participation
                 photo: finalPhoto,
-                base_price: 20000000 // Default 0.20 Cr
+                base_price: 20000000, // Default 0.20 Cr
+                yuva_sabha: yuvaSabha,
+                address: address,
+                area_contact: areaContact,
+                birth_date: birthDate,
+                occupation: occupation,
+                tshirt_size: tshirtSize,
+                tshirt_number: tshirtNumber
             };
 
             if (existingReg) {

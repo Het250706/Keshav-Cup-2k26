@@ -1,21 +1,23 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import NotificationSystem from '@/components/NotificationSystem';
 import CreditBanner from '@/components/CreditBanner';
 import { AuthProvider } from '@/components/AuthProvider';
 
-/**
- * ClientLayout component to wrap the application with necessary context providers
- * and global UI elements like Navbar, Notifications, and the Credit Banner.
- * This ensures consistent branding and functionality across the entire Keshav Cup platform.
- */
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isScoreboard = pathname === '/scoreboard';
+  // Also remove padding for dashboards to keep them "up" as requested
+  const isDashboard = pathname.includes('/dashboard') || pathname.includes('/auction');
+  const noPadding = isScoreboard || isDashboard;
+
   return (
     <AuthProvider>
       <Navbar />
-      <main style={{ minHeight: '100vh', paddingTop: '80px' }}>
+      <main style={{ minHeight: '100vh', paddingTop: noPadding ? '0px' : '80px' }}>
         {children}
       </main>
       <NotificationSystem />

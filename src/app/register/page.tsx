@@ -16,7 +16,9 @@ export default function PublicRegistrationPage() {
         occupation: '',
         occupation_other: '',
         prev_participation: '',
-        skill: ''
+        skill: '',
+        tshirt_size: '',
+        tshirt_number: ''
     });
 
     const [photoFile, setPhotoFile] = useState<File | Blob | null>(null);
@@ -50,6 +52,8 @@ export default function PublicRegistrationPage() {
         if (!photoFile) newErrors.photo = 'Photo is required';
         if (!formData.prev_participation) newErrors.prev_participation = 'આ ક્ષેત્ર આવશ્યક છે';
         if (!formData.skill) newErrors.skill = 'Skill is required';
+        if (!formData.tshirt_size) newErrors.tshirt_size = 'T-shirt size is required';
+        if (!formData.tshirt_number) newErrors.tshirt_number = 'T-shirt number is required';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -175,7 +179,9 @@ export default function PublicRegistrationPage() {
                     occupation: formData.occupation === 'Other:' ? formData.occupation_other : formData.occupation,
                     is_pushed: false,
                     age: 20,
-                    base_price: 20000000
+                    base_price: 20000000,
+                    tshirt_size: formData.tshirt_size,
+                    tshirt_number: formData.tshirt_number
                 }]);
 
             if (insertError) throw insertError;
@@ -200,7 +206,9 @@ export default function PublicRegistrationPage() {
                     occupation: '',
                     occupation_other: '',
                     prev_participation: '',
-                    skill: ''
+                    skill: '',
+                    tshirt_size: '',
+                    tshirt_number: ''
                 });
                 setPhotoFile(null);
                 setPhotoPreview(null);
@@ -409,6 +417,23 @@ export default function PublicRegistrationPage() {
                             ))}
                         </div>
                         {errors.skill && <span className="error-msg"><AlertCircle size={14} /> {errors.skill}</span>}
+                    </div>
+                    
+                    {/* Q11: T-Shirt Size */}
+                    <div className="card-q">
+                        <label className="q-label">T-Shirt Size *</label>
+                        <select className="text-input select-input" value={formData.tshirt_size} onChange={(e) => setFormData({ ...formData, tshirt_size: e.target.value })} required>
+                            <option value="">Choose Size</option>
+                            {['S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map(size => <option key={size} value={size}>{size}</option>)}
+                        </select>
+                        {errors.tshirt_size && <span className="error-msg"><AlertCircle size={14} /> {errors.tshirt_size}</span>}
+                    </div>
+
+                    {/* Q12: T-Shirt Number */}
+                    <div className="card-q">
+                        <label className="q-label">T-Shirt Number (તમે જે નંબર રાખવા માંગતા હોય તે) *</label>
+                        <input type="text" className="text-input" placeholder="e.g. 07, 10, 18" value={formData.tshirt_number} onChange={(e) => setFormData({ ...formData, tshirt_number: e.target.value })} required />
+                        {errors.tshirt_number && <span className="error-msg"><AlertCircle size={14} /> {errors.tshirt_number}</span>}
                     </div>
 
                     <button type="submit" disabled={loading} className="btn-submit">

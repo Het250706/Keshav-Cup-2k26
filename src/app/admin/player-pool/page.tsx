@@ -100,8 +100,6 @@ function PlayerPoolContent() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-            <Navbar />
-
             <div style={{ padding: '60px 20px', maxWidth: '1400px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>

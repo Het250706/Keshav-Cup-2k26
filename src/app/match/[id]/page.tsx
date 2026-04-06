@@ -53,7 +53,6 @@ export default function MatchDetailPage() {
 
     if (!match) return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-            <Navbar />
             <div style={{ padding: '100px', textAlign: 'center' }}>
                 <h1 style={{ fontWeight: 950 }}>MATCH NOT FOUND</h1>
                 <button onClick={() => router.push('/live-score')} className="btn-secondary" style={{ marginTop: '20px' }}>BACK TO LIST</button>
@@ -63,7 +62,6 @@ export default function MatchDetailPage() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-            <Navbar />
             <div className="container-responsive" style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
                 
                 {/* Header Actions */}

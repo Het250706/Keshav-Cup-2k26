@@ -52,8 +52,6 @@ export default function AuctionSummary() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff', paddingBottom: '50px' }}>
-            <Navbar />
-
             <div className="container" style={{ maxWidth: '1600px', margin: '40px auto', padding: '0 20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
                     <div>

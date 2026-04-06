@@ -141,8 +141,6 @@ function CaptainAuctionContent() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', paddingBottom: '40px' }}>
-            <Navbar />
-
             <div className="container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
 
                 {/* Team Info Header */}

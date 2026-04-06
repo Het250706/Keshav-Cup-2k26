@@ -16,7 +16,9 @@ export async function POST(req: Request) {
             occupation_other,
             photo, 
             prev_participation, 
-            skill 
+            skill,
+            tshirt_size,
+            tshirt_number
         } = body;
 
         const auth = new google.auth.GoogleAuth({
@@ -29,7 +31,7 @@ export async function POST(req: Request) {
 
         const sheets = google.sheets({ version: 'v4', auth });
         const spreadsheetId = '1pfeRG8b7dbrt3cuVErSRpnwrmwMOH8AgsQla_NPTs_E';
-        const range = 'Sheet1!A:K';
+        const range = 'Sheet1!A:M';
 
         // 1. Simple empty check - if range A1 is null or empty
         const checkRows = await sheets.spreadsheets.values.get({
@@ -46,7 +48,7 @@ export async function POST(req: Request) {
                     values: [[
                         'Timestamp', 'યુવક સભા', 'Full Name', 'Mobile', 
                         'Address', 'કાર્યકર', 'Birth Date', 'Occupation', 
-                        'Photo URL', 'કેશવ કપ', 'Cricket Skill'
+                        'Photo URL', 'કેશવ કપ', 'Cricket Skill', 'T-Shirt Size', 'T-Shirt Number'
                     ]],
                 },
             });
@@ -66,7 +68,9 @@ export async function POST(req: Request) {
             finalOccupation,
             photo,
             prev_participation,
-            skill
+            skill,
+            tshirt_size,
+            tshirt_number
         ];
 
         await sheets.spreadsheets.values.append({

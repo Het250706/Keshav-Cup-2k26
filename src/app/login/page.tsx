@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Zap, Users, Mail, Lock, AlertCircle, Loader2, Shield } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 
 const CAPTAIN_PASSWORD = '987654321';
 
@@ -28,6 +29,16 @@ export default function CaptainLoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    const { user: authUser, role: authRole, loading: authLoading } = useAuth();
+
+    // Auto-redirect if already logged in
+    useEffect(() => {
+        if (!authLoading && authUser) {
+            if (authRole?.toLowerCase() === 'admin') router.push('/admin/dashboard');
+            else if (authRole?.toLowerCase() === 'captain') router.push('/captain/dashboard');
+        }
+    }, [authUser, authRole, authLoading, router]);
 
     // Auto-fill email when team is selected
     useEffect(() => {
@@ -188,7 +199,7 @@ export default function CaptainLoginPage() {
 
             // 5. Redirect based on role
             if (role === 'admin') {
-                router.push('/admin');
+                router.push('/admin/dashboard');
             } else if (role === 'captain') {
                 router.push('/captain/dashboard');
             } else {

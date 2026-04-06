@@ -50,7 +50,6 @@ export default function GlobalHistoryPage() {
     return (
         <>
             <main style={{ minHeight: '100vh', background: '#000' }}>
-                <Navbar />
                 <div className="container-responsive" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
                     <h1 className="title-gradient" style={{ fontSize: 'clamp(1.8rem, 5vw, 2.5rem)', marginBottom: '40px', textAlign: 'center' }}>Auction Activity Feed</h1>
 

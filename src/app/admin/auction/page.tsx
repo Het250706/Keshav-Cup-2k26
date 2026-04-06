@@ -246,8 +246,6 @@ function AdminAuctionContent() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#050505', color: '#fff', paddingBottom: '100px' }}>
-            <Navbar />
-
             <div className="container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
                 <div style={{ padding: '30px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>

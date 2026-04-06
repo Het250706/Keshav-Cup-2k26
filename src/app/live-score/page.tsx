@@ -36,7 +36,6 @@ export default function LiveScorePage() {
 
     if (loading) return (
         <main style={{ minHeight: '100vh', background: '#000' }}>
-            <Navbar />
             <div style={{ padding: '100px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading live matches...</div>
         </main>
     );
@@ -44,7 +43,6 @@ export default function LiveScorePage() {
     return (
         <>
             <main style={{ minHeight: '100vh', background: '#000' }}>
-                <Navbar />
                 <div className="container-responsive" style={{ padding: '40px 20px', maxWidth: '1000px', margin: '0 auto' }}>
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                         <h1 className="title-gradient" style={{ fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 950, letterSpacing: '-2px' }}>LIVE SCORECARD</h1>

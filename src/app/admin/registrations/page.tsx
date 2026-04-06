@@ -279,13 +279,48 @@ function RegistrationControlContent() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-            <Navbar />
-
             <div style={{ padding: '60px 20px', maxWidth: '1400px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
                         PLAYER REGISTRATION CONTROL
                     </h1>
+                    <button
+                        onClick={async () => {
+                            if (!confirm('Sync registrations from Google Sheet?')) return;
+                            setLoading(true);
+                            try {
+                                const res = await fetch('/api/admin/sync-sheet');
+                                const data = await res.json();
+                                if (data.success) {
+                                    alert(`✅ Sync complete!\n\nNew: ${data.synced || 0}\nUpdated: ${data.updated || 0}\nSkipped (in Pool): ${data.inPool || 0}`);
+                                    fetchRegistrations();
+                                } else {
+                                    alert('Sync failed: ' + data.error);
+                                }
+                            } catch (err: any) {
+                                alert('Error: ' + err.message);
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        disabled={loading}
+                        style={{
+                            padding: '12px 25px',
+                            background: 'rgba(255,215,0,0.1)',
+                            border: '1px solid var(--primary)',
+                            color: 'var(--primary)',
+                            borderRadius: '12px',
+                            fontWeight: 900,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}
+                    >
+                        <RefreshCw size={18} className={loading ? 'rotate' : ''} />
+                        SYNC FROM SHEET
+                    </button>
                 </div>
 
                 {/* Search and Filter Bar */}

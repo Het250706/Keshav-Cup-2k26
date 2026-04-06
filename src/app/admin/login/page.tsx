@@ -2,10 +2,11 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shield, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 
 // ALLOWED ADMIN EMAILS - Configurable as requested
 const ALLOWED_ADMINS = [
@@ -19,6 +20,14 @@ export default function AdminLoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const { user: authUser, role: authRole, loading: authLoading } = useAuth();
+
+    // REMOVED AUTO-REDIRECT to ensure password/email entry is required every time
+    // useEffect(() => {
+    //     if (!authLoading && authUser && authRole?.toLowerCase() === 'admin') {
+    //         router.push('/admin/dashboard');
+    //     }
+    // }, [authUser, authRole, authLoading, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
