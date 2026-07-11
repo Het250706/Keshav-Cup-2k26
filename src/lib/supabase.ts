@@ -6,13 +6,23 @@ const getSupabaseConfig = () => {
     return { url, key }
 }
 
+const isValidUrl = (url?: string) => {
+    if (!url) return false
+    try {
+        new URL(url)
+        return true
+    } catch {
+        return false
+    }
+}
+
 let clientInstance: any = null
 
 export const supabase = (() => {
     // Safely handle build-time execution where environment variables might be missing
     if (typeof window === 'undefined') {
         const { url, key } = getSupabaseConfig()
-        if (!url || !key) {
+        if (!url || !key || !isValidUrl(url)) {
             // Return a safe proxy during build to avoid crashing Next.js static analysis.
             // This allows the build to evaluate the module without throwing an error immediately.
             return new Proxy({} as any, {
@@ -21,7 +31,7 @@ export const supabase = (() => {
                     // Only throw at actual runtime, not during build
                     const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
                     if (!isBuild) {
-                        console.error(`Supabase Client Error: Missing environment variables for ${String(prop)}`);
+                        console.error(`Supabase Client Error: Missing or invalid environment variables for ${String(prop)}`);
                     }
                     return () => ({ from: () => ({ select: () => ({ single: () => ({}) }) }) });
                 }
@@ -32,8 +42,8 @@ export const supabase = (() => {
 
     if (!clientInstance) {
         const { url, key } = getSupabaseConfig()
-        if (!url || !key) {
-            throw new Error("Missing Supabase environment variables");
+        if (!url || !key || !isValidUrl(url)) {
+            throw new Error("Missing or invalid Supabase environment variables");
         }
         clientInstance = createBrowserClient(url, key, {
             auth: {

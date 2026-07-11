@@ -4,8 +4,17 @@ export const supabaseAdmin = (() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    const isValidUrl = (url: string) => {
+        try {
+            new URL(url);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
     // Use a pattern that avoids build-time crashes on Vercel
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey || !isValidUrl(supabaseUrl)) {
         // Return a proxy that ignores calls during build but throws at runtime
         return new Proxy({} as any, {
             get: (_, prop) => {
