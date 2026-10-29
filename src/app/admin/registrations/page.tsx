@@ -22,7 +22,7 @@ function RegistrationControlContent() {
     const [pushingId, setPushingId] = useState<string | null>(null);
     const [uploadingId, setUploadingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [hidePushed, setHidePushed] = useState(true);
+    const [hidePushed, setHidePushed] = useState(false);
     const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
     const [newSlotInput, setNewSlotInput] = useState('');
 
@@ -38,6 +38,7 @@ function RegistrationControlContent() {
         const { data, error } = await supabase
             .from('registrations')
             .select('*')
+            .order('is_pushed', { ascending: true })
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -214,41 +215,39 @@ function RegistrationControlContent() {
 
         if (player.is_pushed) {
             // Pushed player — players table ma thi remove + is_pushed reset
-            if (!confirm(`${player.name} is already pushed to Player Pool.\n\nThis will:\n✅ Remove from Player Pool\n✅ Keep in Registration Control\n✅ Allow re-pushing later\n\nContinue?`)) return;
+            if (!confirm(`Remove ${player.name} from Player Pool?`)) return;
 
-            // 1. Players table ma thi delete karo
+            // 1. INSTANT OPTIMISTIC UPDATE (0ms)
+            const backup = [...registrations];
+            setRegistrations(prev => prev.map(p =>
+                p.id === id ? { ...p, is_pushed: false } : p
+            ));
+
             const nameParts = player.name?.split(' ') || ['Unknown', 'Player'];
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(' ') || 'Player';
 
-            await supabase
-                .from('players')
-                .delete()
-                .eq('first_name', firstName)
-                .eq('last_name', lastName);
-
-            // 2. Registration ma is_pushed = false karo
-            const { error } = await supabase
-                .from('registrations')
-                .update({ is_pushed: false })
-                .eq('id', id);
-
-            if (error) {
-                alert('Failed: ' + error.message);
-            } else {
-                setRegistrations(prev => prev.map(p =>
-                    p.id === id ? { ...p, is_pushed: false } : p
-                ));
-                alert(`${player.name} removed from Player Pool. Can be re-pushed anytime.`);
+            try {
+                await Promise.all([
+                    supabase.from('players').delete().eq('first_name', firstName).eq('last_name', lastName),
+                    supabase.from('registrations').update({ is_pushed: false }).eq('id', id)
+                ]);
+            } catch (err: any) {
+                setRegistrations(backup);
+                alert('Failed to remove: ' + err.message);
             }
         } else {
             // Not pushed — permanently delete
             if (!confirm(`Permanently delete ${player.name}'s registration?`)) return;
+
+            // 1. INSTANT OPTIMISTIC REMOVAL (0ms)
+            const backup = [...registrations];
+            setRegistrations(prev => prev.filter(p => p.id !== id));
+
             const { error } = await supabase.from('registrations').delete().eq('id', id);
             if (error) {
+                setRegistrations(backup);
                 alert('Delete failed: ' + error.message);
-            } else {
-                setRegistrations(prev => prev.filter(p => p.id !== id));
             }
         }
     };
@@ -388,14 +387,14 @@ function RegistrationControlContent() {
                                 </tr>
                             ) : (
                                 filtered.map((p) => (
-                                    <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' }} className="table-row-hover">
+                                    <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: !p.is_pushed ? 'rgba(255, 215, 0, 0.05)' : 'transparent', transition: 'background 0.2s' }} className="table-row-hover">
                                         <td style={tdStyle}>
                                             <div
                                                 style={{
                                                     width: '56px', height: '56px', borderRadius: '12px',
                                                     overflow: 'hidden', background: '#111', margin: '0 auto',
                                                     position: 'relative', cursor: 'pointer',
-                                                    border: '1px solid rgba(255,255,255,0.1)'
+                                                    border: !p.is_pushed ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)'
                                                 }}
                                                 className="photo-container"
                                                 onClick={() => { setSelectedPlayer(p); setShowModal(true); }}
@@ -418,6 +417,11 @@ function RegistrationControlContent() {
                                         <td style={tdStyle}>
                                             <div style={{ textAlign: 'center' }}>
                                                 <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#fff' }}>{p.name}</div>
+                                                {!p.is_pushed && (
+                                                    <span style={{ fontSize: '0.65rem', background: 'rgba(255, 215, 0, 0.2)', color: '#ffd700', padding: '2px 8px', borderRadius: '4px', fontWeight: 900, letterSpacing: '1px', display: 'inline-block', marginTop: '4px' }}>
+                                                        READY TO PUSH
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                         <td style={tdStyle}>

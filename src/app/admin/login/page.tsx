@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { Shield, Lock, Mail, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -17,17 +17,11 @@ const ALLOWED_ADMINS = [
 export default function AdminLoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const { user: authUser, role: authRole, loading: authLoading } = useAuth();
-
-    // REMOVED AUTO-REDIRECT to ensure password/email entry is required every time
-    // useEffect(() => {
-    //     if (!authLoading && authUser && authRole?.toLowerCase() === 'admin') {
-    //         router.push('/admin/dashboard');
-    //     }
-    // }, [authUser, authRole, authLoading, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,23 +45,28 @@ export default function AdminLoginPage() {
                 password: loginPassword,
             });
 
-            // FALLBACK: Server-side check if client-side is disabled
-            if (authError && authError.message.toLowerCase().includes('email logins are disabled')) {
-                const loginRes = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: loginEmail, password: loginPassword })
-                });
+            // FALLBACK: Server-side check if client-side fails
+            if (authError) {
+                console.log('Client-side sign in failed, trying server API fallback...');
+                try {
+                    const loginRes = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+                    });
 
-                if (loginRes.ok) {
-                    const loginData = await loginRes.json();
-                    if (loginData.session) {
-                        const { error: sessionError } = await supabase.auth.setSession(loginData.session);
-                        if (!sessionError) {
-                            authError = null;
-                            data = { user: loginData.user, session: loginData.session };
+                    if (loginRes.ok) {
+                        const loginData = await loginRes.json();
+                        if (loginData.session) {
+                            const { error: sessionError } = await supabase.auth.setSession(loginData.session);
+                            if (!sessionError) {
+                                authError = null;
+                                data = { user: loginData.user, session: loginData.session };
+                            }
                         }
                     }
+                } catch (fallbackErr) {
+                    console.error('API fallback failed:', fallbackErr);
                 }
             }
 
@@ -81,19 +80,40 @@ export default function AdminLoginPage() {
             if (!data?.user) throw new Error('Authentication failed');
 
             // 3. Verify Admin Role in Database
-            const { data: roleData, error: roleError } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', data.user.id)
-                .single();
+            let isVerifiedAdmin = false;
+            try {
+                const { data: roleData } = await supabase
+                    .from('user_roles')
+                    .select('role')
+                    .eq('user_id', data.user.id)
+                    .single();
 
-            if (roleError || !roleData || roleData.role.toLowerCase() !== 'admin') {
+                if (roleData && roleData.role?.toLowerCase() === 'admin') {
+                    isVerifiedAdmin = true;
+                }
+            } catch (_) {}
+
+            if (!isVerifiedAdmin && ALLOWED_ADMINS.includes(loginEmail.toLowerCase())) {
+                isVerifiedAdmin = true;
+            }
+
+            if (!isVerifiedAdmin) {
                 await supabase.auth.signOut();
                 throw new Error('Access Denied: Your account does not have Administrator privileges.');
             }
 
+            // Store session and role immediately into storage so RoleGuard is satisfied instantly
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('kc_cached_user', JSON.stringify(data.user));
+                    localStorage.setItem('kc_cached_user_id', data.user.id);
+                    localStorage.setItem('kc_cached_role', 'admin');
+                    sessionStorage.setItem('kc_cached_role', 'admin');
+                } catch (_) {}
+            }
+
             // SUCCESS Redirect to Admin Dashboard
-            router.push('/admin/dashboard');
+            window.location.href = '/admin/dashboard';
 
         } catch (err: any) {
             setError(err.message || 'Login failed');
@@ -171,13 +191,33 @@ export default function AdminLoginPage() {
                         <div style={{ position: 'relative' }}>
                             <Lock style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={20} />
                             <input
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
-                                style={inputStyle}
+                                style={{ ...inputStyle, paddingRight: '50px' }}
                                 required
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{
+                                    position: 'absolute',
+                                    right: '16px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
                     </div>
 

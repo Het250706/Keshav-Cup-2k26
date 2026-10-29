@@ -15,6 +15,11 @@ export default function Navbar() {
     const { user, role, loading } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScoreboardAuth, setIsScoreboardAuth] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // 1. Identify Contexts
     const isLoginPage = pathname === '/login' || pathname === '/admin/login';
@@ -39,6 +44,7 @@ export default function Navbar() {
     }, [isScoreboardPage]);
 
     const shouldShowNavbar = (() => {
+        if (!mounted) return false;
         if (isLoginPage) return false;
         if (isScoreboardPage) return isScoreboardAuth;
         
@@ -49,7 +55,7 @@ export default function Navbar() {
         return (canShowAdmin || canShowCaptain || canShowPublicOther);
     })();
 
-    if (!shouldShowNavbar) return null;
+    if (!mounted || !shouldShowNavbar) return null;
 
     const handleLogout = async () => {
         try {
@@ -87,6 +93,9 @@ export default function Navbar() {
             <Link href="/admin/dashboard" style={getNavLinkStyle('/admin/dashboard')} onClick={() => setIsMenuOpen(false)}>
                 <Shield size={18} /> <span>Admin Panel</span>
             </Link>
+            <Link href="/admin/auction" style={getNavLinkStyle('/admin/auction')} onClick={() => setIsMenuOpen(false)}>
+                <Gavel size={18} /> <span>Auction Console</span>
+            </Link>
             <Link href="/analytics" style={getNavLinkStyle('/analytics')} onClick={() => setIsMenuOpen(false)}>
                 <PieChart size={18} /> <span>Analytics</span>
             </Link>
@@ -109,6 +118,9 @@ export default function Navbar() {
             </button>
             <Link href="/captain/dashboard" style={getNavLinkStyle('/captain/dashboard')} onClick={() => setIsMenuOpen(false)}>
                 <LayoutDashboard size={18} /> <span>Dashboard</span>
+            </Link>
+            <Link href="/captain/auction" style={getNavLinkStyle('/captain/auction')} onClick={() => setIsMenuOpen(false)}>
+                <Gavel size={18} /> <span>Live Auction</span>
             </Link>
         </>
     );

@@ -19,6 +19,7 @@ import {
     History
 } from 'lucide-react';
 import { getPurplePushp, getNextBid, MAX_SQUAD_SIZE } from '@/lib/auction-logic';
+import { playBidSound, playHammerSound } from '@/lib/audio';
 
 const TEAM_ORDER = [
     'SHAURYAM',
@@ -71,9 +72,14 @@ function AdminAuctionContent() {
     const [isSoldAnimating, setIsSoldAnimating] = useState(false);
     const [recentBids, setRecentBids] = useState<any[]>([]);
     const currentPlayerIdRef = useRef<string | null>(null);
+    const teamsRef = useRef<any[]>([]);
     const [bidCooldowns, setBidCooldowns] = useState<Record<string, boolean>>({});
     const [bidToast, setBidToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string>('All');
+
+    useEffect(() => {
+        teamsRef.current = teams;
+    }, [teams]);
 
     const fetchRecentBids = async (playerId: string) => {
         if (!playerId) {
@@ -104,10 +110,18 @@ function AdminAuctionContent() {
                 fetchRecentBids(stateRes.data.current_player_id);
             }
             if (teamsRes.data) {
-                // Fetch squad counts for each team
-                const teamsWithSquadCount = await Promise.all(teamsRes.data.map(async (t: any) => {
-                    const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).eq('team_id', t.id).eq('auction_status', 'sold');
-                    return { ...t, squad_count: count || 0 };
+                // Compute squad count in memory from playersRes in 0ms (no extra network calls)
+                const allPlayers = playersRes.data || [];
+                const squadCountMap: Record<string, number> = {};
+                for (const p of allPlayers) {
+                    if (p.auction_status === 'sold' && p.team_id) {
+                        squadCountMap[p.team_id] = (squadCountMap[p.team_id] || 0) + 1;
+                    }
+                }
+
+                const teamsWithSquadCount = teamsRes.data.map((t: any) => ({
+                    ...t,
+                    squad_count: squadCountMap[t.id] || 0
                 }));
 
                 // Sort by fixed TEAM_ORDER
@@ -130,6 +144,7 @@ function AdminAuctionContent() {
             .on('postgres_changes', { event: '*', table: 'auction_state', schema: 'public' }, (p: any) => {
                 setAuctionState(p.new);
                 if ((p.new as any).status === 'SOLD') {
+                    playHammerSound();
                     setIsSoldAnimating(true);
                     setTimeout(() => setIsSoldAnimating(false), 3000);
                 }
@@ -139,6 +154,14 @@ function AdminAuctionContent() {
                 }
             })
             .on('postgres_changes', { event: 'INSERT', table: 'bids', schema: 'public' }, (payload: any) => {
+                playBidSound();
+                let bTeamName = 'A Franchise';
+                const bTeam = teamsRef.current.find(t => t.id === payload.new.team_id);
+                if (bTeam?.name) bTeamName = bTeam.name;
+
+                setBidToast({ message: `⚡ LIVE BID: ${bTeamName} placed a bid of ${payload.new.amount} Pushp!`, type: 'success' });
+                setTimeout(() => setBidToast(null), 3500);
+
                 // Use ref to avoid stale closure
                 if (currentPlayerIdRef.current && payload.new.player_id === currentPlayerIdRef.current) {
                     fetchRecentBids(payload.new.player_id);
@@ -246,6 +269,39 @@ function AdminAuctionContent() {
 
     return (
         <main style={{ minHeight: '100vh', background: '#050505', color: '#fff', paddingBottom: '100px' }}>
+            {/* FLOATING LIVE BID TOAST FOR ADMIN */}
+            <AnimatePresence>
+                {bidToast && (
+                    <motion.div
+                        initial={{ y: -60, opacity: 0 }}
+                        animate={{ y: 25, opacity: 1 }}
+                        exit={{ y: -60, opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            top: '20px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 9999,
+                            background: bidToast.type === 'error'
+                                ? 'rgba(255, 50, 50, 0.95)'
+                                : 'linear-gradient(135deg, rgba(255, 215, 0, 0.95), rgba(255, 140, 0, 0.95))',
+                            color: bidToast.type === 'error' ? '#fff' : '#000',
+                            padding: '14px 28px',
+                            borderRadius: '50px',
+                            boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+                            fontWeight: 950,
+                            fontSize: '1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px'
+                        }}
+                    >
+                        <Zap size={20} fill="#000" />
+                        <span>{bidToast.message}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className="container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
                 <div style={{ padding: '30px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -507,10 +563,12 @@ function AdminAuctionContent() {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
                                             <span>Squad Size: {t.squad_count} / {MAX_SQUAD_SIZE}</span>
-                                            <span>{(t.squad_count / 9 * 100).toFixed(0)}% Full</span>
+                                            <span style={{ color: t.squad_count >= MAX_SQUAD_SIZE ? '#00e676' : 'var(--text-muted)' }}>
+                                                {Math.min(100, Math.round((t.squad_count / MAX_SQUAD_SIZE) * 100))}% Full
+                                            </span>
                                         </div>
                                         <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${(t.squad_count / 9) * 100}%`, height: '100%', background: t.squad_count >= 9 ? '#ff4b4b' : 'var(--primary)' }}></div>
+                                            <div style={{ width: `${Math.min(100, (t.squad_count / MAX_SQUAD_SIZE) * 100)}%`, height: '100%', background: t.squad_count >= MAX_SQUAD_SIZE ? '#00e676' : 'var(--primary)' }}></div>
                                         </div>
                                     </div>
                                 ))}

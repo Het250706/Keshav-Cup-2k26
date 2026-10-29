@@ -12,10 +12,6 @@ function AuctionHistoryContent() {
         <RoleGuard allowedRole="admin">
             <main style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
                 
-                <Suspense fallback={null}>
-                    <Navbar />
-                </Suspense>
-
                 <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
                     <h1 style={{ fontSize: '3rem', fontWeight: 900 }}>
                         AUCTION HISTORY

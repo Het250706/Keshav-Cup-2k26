@@ -258,7 +258,40 @@ function AdminDashboardContent() {
         }
     };
 
+    const handleDeletePlayer = async (playerToDelete: any) => {
+        if (!confirm(`Are you sure you want to remove ${playerToDelete.first_name} ${playerToDelete.last_name}?`)) return;
 
+        // 1. INSTANT OPTIMISTIC UI REMOVAL (0ms)
+        const backupPlayers = [...players];
+        const backupTeams = [...teams];
+        const backupRegCount = registrationsCount;
+
+        setPlayers(prev => prev.filter(p => p.id !== playerToDelete.id));
+        if (playerToDelete.auction_status === 'sold' && playerToDelete.team_id && playerToDelete.sold_price) {
+            setTeams(prev => prev.map(t => 
+                t.id === playerToDelete.team_id 
+                    ? { ...t, remaining_budget: Number(t.remaining_budget || 0) + Number(playerToDelete.sold_price) }
+                    : t
+            ));
+        }
+        setRegistrationsCount(prev => prev + 1);
+
+        // 2. High-speed background API call
+        try {
+            const res = await fetch(`/api/admin/delete-player?id=${playerToDelete.id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Delete failed on server');
+            }
+        } catch (err: any) {
+            console.error('Delete failed:', err);
+            alert('Failed to remove player: ' + err.message);
+            // Rollback on failure
+            setPlayers(backupPlayers);
+            setTeams(backupTeams);
+            setRegistrationsCount(backupRegCount);
+        }
+    };
 
     const currentPlayer = players.find(p => p.id === auctionState?.current_player_id);
 
@@ -600,12 +633,11 @@ function AdminDashboardContent() {
                                                     </div>
                                                 </td>
                                                 <td style={tdStyle}>
-                                                    <button onClick={async () => {
-                                                        if (confirm('Delete player?')) {
-                                                            const res = await fetch(`/api/admin/delete-player?id=${p.id}`, { method: 'DELETE' });
-                                                            if (res.ok) fetchData();
-                                                        }
-                                                    }} style={{ color: '#ff4b4b', opacity: 0.5, background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                    <button 
+                                                        onClick={() => handleDeletePlayer(p)} 
+                                                        style={{ color: '#ff4b4b', opacity: 0.7, background: 'none', border: 'none', cursor: 'pointer', padding: '6px', transition: 'all 0.2s' }}
+                                                        title="Remove Player (Instant)"
+                                                    >
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </td>

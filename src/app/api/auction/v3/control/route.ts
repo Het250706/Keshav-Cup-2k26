@@ -41,12 +41,14 @@ export async function POST(request: Request) {
         }
 
         if (action === 'unsold') {
-            await supabaseAdmin.from('players').update({ auction_status: 'unsold' }).eq('id', player_id);
-            await supabaseAdmin.from('auction_state').update({
-                status: 'UNSOLD',
-                bidding_status: 'IDLE',
-                last_updated_at: new Date().toISOString()
-            }).eq('id', 1);
+            await Promise.all([
+                supabaseAdmin.from('players').update({ auction_status: 'unsold' }).eq('id', player_id),
+                supabaseAdmin.from('auction_state').update({
+                    status: 'UNSOLD',
+                    bidding_status: 'IDLE',
+                    last_updated_at: new Date().toISOString()
+                }).eq('id', 1)
+            ]);
             return NextResponse.json({ success: true });
         }
 

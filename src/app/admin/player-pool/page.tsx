@@ -40,20 +40,25 @@ function PlayerPoolContent() {
     };
 
     const deletePlayer = async (id: string) => {
-        if (!confirm('Are you sure you want to remove this player from the auction pool and return them to registrations?')) return;
+        const playerToDelete = players.find(p => p.id === id);
+        if (!confirm(`Are you sure you want to remove ${playerToDelete ? `${playerToDelete.first_name} ${playerToDelete.last_name}` : 'this player'} from the auction pool and return them to registrations?`)) return;
         
+        // 1. INSTANT OPTIMISTIC REMOVAL (0ms UI latency)
+        const backup = [...players];
+        setPlayers(prev => prev.filter(p => p.id !== id));
+
         try {
             const res = await fetch(`/api/admin/delete-player?id=${id}`, {
                 method: 'DELETE'
             });
             const data = await res.json();
             
-            if (data.success) {
-                setPlayers(prev => prev.filter(p => p.id !== id));
-            } else {
+            if (!data.success) {
+                setPlayers(backup);
                 alert('Delete failed: ' + (data.error || 'Unknown error'));
             }
         } catch (err: any) {
+            setPlayers(backup);
             alert('Error deleting player: ' + err.message);
         }
     };

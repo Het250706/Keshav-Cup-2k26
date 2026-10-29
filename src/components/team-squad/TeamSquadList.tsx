@@ -57,7 +57,11 @@ export default function TeamSquadList() {
 
             <div className="teams-grid">
                 {filteredTeams.map((team, i) => {
-                    const squad = players.filter((p: any) => p.sold_team_id === team.id);
+                    const squad = players.filter((p: any) => 
+                        p.sold_team_id === team.id || 
+                        p.team_id === team.id || 
+                        (p.sold_team && p.sold_team.toLowerCase() === team.name.toLowerCase())
+                    );
                     const spent = squad.reduce((acc: number, p: any) => acc + (p.sold_price || 0), 0);
                     const isExpanded = expandedTeam === team.id;
 
@@ -89,7 +93,7 @@ export default function TeamSquadList() {
                                         <h2 style={{ fontSize: '1.5rem', fontWeight: 950 }}>{team.name}</h2>
                                         <div style={{ display: 'flex', gap: '15px', marginTop: '5px' }}>
                                             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                <Users size={14} /> {squad.length} PLAYERS
+                                                <Users size={14} /> {squad.length} / 9 PLAYERS
                                             </span>
                                             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                 <CreditCard size={14} /> {team.remaining_budget} Pushp REMAINING

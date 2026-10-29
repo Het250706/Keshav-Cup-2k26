@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Info, CheckCircle, AlertCircle, TrendingUp, Hammer } from 'lucide-react';
+import { playBidSound, playHammerSound } from '@/lib/audio';
 
 interface Notification {
     id: string;
@@ -15,31 +16,37 @@ interface Notification {
 
 export default function NotificationSystem() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const teamsMapRef = useRef<Record<string, string>>({});
 
     useEffect(() => {
-        const channel = supabase.channel('notif-system')
-            .on('postgres_changes', { event: 'INSERT', table: 'bids', schema: 'public' }, async (payload: any) => {
-                const { data: team } = await supabase.from('teams').select('name').eq('id', payload.new.team_id).single();
-                const { data: player } = await supabase.from('players').select('first_name, last_name').eq('id', payload.new.player_id).single();
+        // Pre-cache all teams once into memory (0ms lookup)
+        supabase.from('teams').select('id, name').then(({ data }) => {
+            if (data) {
+                const map: Record<string, string> = {};
+                data.forEach((t: any) => { map[t.id] = t.name; });
+                teamsMapRef.current = map;
+            }
+        });
 
-                const playerName = player ? `${player.first_name} ${player.last_name}` : 'Unknown Player';
+        const channel = supabase.channel('notif-system')
+            .on('postgres_changes', { event: 'INSERT', table: 'bids', schema: 'public' }, (payload: any) => {
+                const teamName = teamsMapRef.current[payload.new.team_id] || 'A Franchise';
 
                 addNotification({
                     id: payload.new.id,
-                    message: `${team?.name || 'A team'} bid ${payload.new.amount} Pushp`,
-                    playerName: playerName,
+                    message: `${teamName} bid ${payload.new.amount} Pushp`,
                     type: 'bid',
-                    team: team?.name
+                    team: teamName
                 });
 
                 playBidSound();
             })
-            .on('postgres_changes', { event: 'UPDATE', table: 'players', schema: 'public' }, async (payload: any) => {
+            .on('postgres_changes', { event: 'UPDATE', table: 'players', schema: 'public' }, (payload: any) => {
                 // If player status changed to 'sold'
-                if (payload.new.auction_status === 'sold' && payload.old.auction_status !== 'sold') {
+                if (payload.new.auction_status === 'sold' && payload.old?.auction_status !== 'sold') {
                     addNotification({
                         id: `sold-${payload.new.id}`,
-                        message: `🔨 SOLD! ${payload.new.first_name} ${payload.new.last_name} to ${payload.new.sold_team}`,
+                        message: `🔨 SOLD! ${payload.new.first_name} ${payload.new.last_name} to ${payload.new.sold_team || 'Team'}`,
                         type: 'success'
                     });
                     playHammerSound();
@@ -54,17 +61,7 @@ export default function NotificationSystem() {
         setNotifications(prev => [notif, ...prev].slice(0, 5));
         setTimeout(() => {
             setNotifications(prev => prev.filter(n => n.id !== notif.id));
-        }, 6000);
-    };
-
-    const playBidSound = () => {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
-        audio.play().catch(() => { });
-    };
-
-    const playHammerSound = () => {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2040/2040-preview.mp3');
-        audio.play().catch(() => { });
+        }, 5000);
     };
 
     return (

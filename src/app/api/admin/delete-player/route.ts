@@ -10,117 +10,112 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ success: false, error: 'Player ID is required' }, { status: 400 });
         }
 
-        // 1. Handle relations: Clear from auction_state if active
-        await supabaseAdmin
-            .from('auction_state')
-            .update({ current_player_id: null, status: 'idle' })
-            .eq('current_player_id', playerId);
+        // STEP 1: Fetch player info, clear active auction state, and delete bids in parallel
+        const [playerRes] = await Promise.all([
+            supabaseAdmin.from('players').select('*').eq('id', playerId).single(),
+            supabaseAdmin.from('auction_state').update({ current_player_id: null, status: 'IDLE' }).eq('current_player_id', playerId),
+            supabaseAdmin.from('bids').delete().eq('player_id', playerId)
+        ]);
 
-        // 2. Delete related bids first (Foreign Key constraint)
-        await supabaseAdmin
-            .from('bids')
-            .delete()
-            .eq('player_id', playerId);
+        const player = playerRes.data;
 
-        // 3. Get player info for return-trip and budget refund
-        const { data: player } = await supabaseAdmin
-            .from('players')
-            .select('*')
-            .eq('id', playerId)
-            .single();
+        // STEP 2: Concurrently delete player from pool, restore to registrations (is_pushed = false), and refund team budget!
+        const postDeleteTasks: Promise<any>[] = [
+            supabaseAdmin.from('players').delete().eq('id', playerId)
+        ];
 
         if (player) {
-                // Fix photo URL for return trip
-                let restorePhoto = player.photo_url || '';
-                if (restorePhoto.includes('drive.google.com')) {
-                    const fileIdMatch = restorePhoto.match(/[-\w]{25,}/);
-                    if (fileIdMatch) {
-                        restorePhoto = `https://drive.google.com/uc?export=view&id=${fileIdMatch[0]}`;
-                    }
-                }
+            const fullName = `${player.first_name || ''} ${player.last_name || ''}`.trim();
 
-                // Restore to registrations table: Update status if exists, otherwise Insert
-                const mobile = player.category || '';
-                const { data: existingReg } = await supabaseAdmin
-                    .from('registrations')
-                    .select('id')
-                    .eq('mobile', mobile)
-                    .maybeSingle();
-
-                let restoreError;
-                if (existingReg) {
-                    const { error } = await supabaseAdmin
+            // Task: Return player to REGISTRATION CONTROL by setting is_pushed = false (or insert if not exists)
+            const restoreTask = (async () => {
+                try {
+                    // 1. Direct update to registrations by name (handles single or duplicate names safely)
+                    const { data: updatedRegs } = await supabaseAdmin
                         .from('registrations')
                         .update({ is_pushed: false })
-                        .eq('id', existingReg.id);
-                    restoreError = error;
-                } else {
-                    const { error } = await supabaseAdmin
-                        .from('registrations')
-                        .insert([{
-                            name: `${player.first_name} ${player.last_name}`,
-                            role: player.role || 'All-rounder',
-                            base_price: player.base_price,
-                            mobile: mobile,
-                            age: Number(player.batting_style) || 20,
-                            city: player.was_present_kc3 || 'No',
-                            photo: restorePhoto,
-                            is_pushed: false
-                        }]);
-                    restoreError = error;
+                        .ilike('name', fullName)
+                        .select('id');
+
+                    let didUpdate = updatedRegs && updatedRegs.length > 0;
+
+                    // 2. If not found by full name, try matching first and last name pattern
+                    if (!didUpdate && player.first_name && player.last_name) {
+                        const { data: fuzzyRegs } = await supabaseAdmin
+                            .from('registrations')
+                            .update({ is_pushed: false })
+                            .ilike('name', `%${player.first_name}%${player.last_name}%`)
+                            .select('id');
+
+                        didUpdate = fuzzyRegs && fuzzyRegs.length > 0;
+                    }
+
+                    // 3. If no matching registration exists, create a new one!
+                    if (!didUpdate) {
+                        let restorePhoto = player.photo_url || '';
+                        if (restorePhoto.includes('drive.google.com')) {
+                            const fileIdMatch = restorePhoto.match(/[-\w]{25,}/);
+                            if (fileIdMatch) {
+                                restorePhoto = `https://lh3.googleusercontent.com/d/${fileIdMatch[0]}`;
+                            }
+                        }
+
+                        await supabaseAdmin
+                            .from('registrations')
+                            .insert([{
+                                name: fullName,
+                                role: player.cricket_skill || player.role || 'All-rounder',
+                                base_price: player.base_price || 100,
+                                mobile: player.category && player.category !== 'Unassigned' ? player.category : '',
+                                age: Number(player.batting_style) || 20,
+                                city: player.was_present_kc3 || 'No',
+                                photo: restorePhoto,
+                                is_pushed: false
+                            }]);
+                        console.log(`Created new record in REGISTRATION CONTROL for "${fullName}" (is_pushed = false)`);
+                    } else {
+                        console.log(`Successfully returned "${fullName}" to REGISTRATION CONTROL (is_pushed = false)`);
+                    }
+                } catch (e) {
+                    console.error('Registration restore error:', e);
                 }
-            
-            if (restoreError) {
-                console.error('Failed to restore/update registration:', restoreError);
-            } else {
-                console.log(`Successfully restored ${player.first_name} to registrations`);
+            })();
+            postDeleteTasks.push(restoreTask);
+
+            // Task: Refund budget to team if the player was sold
+            if (player.auction_status === 'sold' && player.team_id && player.sold_price) {
+                const refundTask = (async () => {
+                    try {
+                        const { data: team } = await supabaseAdmin
+                            .from('teams')
+                            .select('remaining_budget')
+                            .eq('id', player.team_id)
+                            .single();
+
+                        if (team) {
+                            const currentRemaining = Number(team.remaining_budget) || 0;
+                            const soldPrice = Number(player.sold_price) || 0;
+                            await supabaseAdmin
+                                .from('teams')
+                                .update({ remaining_budget: currentRemaining + soldPrice })
+                                .eq('id', player.team_id);
+                            console.log(`Refunded ${soldPrice} Pushp to team ${player.team_id}`);
+                        }
+                    } catch (e) {
+                        console.error('Refund budget error:', e);
+                    }
+                })();
+                postDeleteTasks.push(refundTask);
             }
         }
 
-        // 4. Refund budget if sold
-        if (player && player.auction_status === 'sold' && player.team_id && player.sold_price) {
-            const { data: team } = await supabaseAdmin
-                .from('teams')
-                .select('remaining_budget')
-                .eq('id', player.team_id)
-                .single();
-            
-            if (team) {
-                const currentRemaining = Number(team.remaining_budget) || 0;
-                const soldPrice = Number(player.sold_price) || 0;
-                
-                await supabaseAdmin
-                    .from('teams')
-                    .update({ remaining_budget: currentRemaining + soldPrice })
-                    .eq('id', player.team_id);
-                
-                console.log(`Refunded ${soldPrice} to team ${player.team_id}`);
-            }
-        }
+        // Run all critical database tasks concurrently
+        await Promise.all(postDeleteTasks);
 
-        // 5. Delete from database
-        const { error: dbError } = await supabaseAdmin
-            .from('players')
-            .delete()
-            .eq('id', playerId);
-
-        if (dbError) throw dbError;
-
-        // 6. Optional: Delete photo from storage if it exists
-        if (player?.photo_url) {
-            try {
-                const fileName = player.photo_url.split('/').pop();
-                if (fileName) {
-                    await supabaseAdmin.storage
-                        .from('players')
-                        .remove([fileName]);
-                }
-            } catch (storageErr) {
-                console.error('Failed to delete player photo:', storageErr);
-            }
-        }
-
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            message: 'Player removed from pool and returned to Registration Control'
+        });
 
     } catch (error: any) {
         console.error('Delete Player Error:', error);

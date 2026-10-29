@@ -1,6 +1,5 @@
 'use client';
 
-import Navbar from '@/components/Navbar';
 import TeamSquadList from '@/components/team-squad/TeamSquadList';
 import RoleGuard from '@/components/RoleGuard';
 
